@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 )
 
+type PrivateKey = ecdsa.PrivateKey
+
 func GenerateKeyPair() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 }

@@ -13,7 +13,7 @@ type Block struct {
 	CurrentBlockHash  []byte
 }
 
-func NewBlock(transactions []*Transaction, previousHash []byte) *Block {
+func NewBlock(transactions []*Transaction, previousBlockHash []byte) *Block {
 	var txHashes [][]byte
 	for _, tx := range transactions {
 		txHashes = append(txHashes, tx.Hash())
@@ -26,7 +26,7 @@ func NewBlock(transactions []*Transaction, previousHash []byte) *Block {
 	block := &Block{
 		Transactions:      transactions,
 		MerkleRoot:        merkleRoot,
-		PreviousBlockHash: previousHash,
+		PreviousBlockHash: previousBlockHash,
 	}
 
 	block.CurrentBlockHash = block.Hash()

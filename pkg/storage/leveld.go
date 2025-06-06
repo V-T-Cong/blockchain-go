@@ -26,6 +26,12 @@ func (d *DB) SaveBlock(block *blockchain.Block) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal block: %w", err)
 	}
+
+	// Save block by it hash
+	if err := d.db.Put(key, value, nil); err != nil {
+		return err
+	}
+
 	return d.db.Put(key, value, nil)
 }
 
@@ -40,6 +46,14 @@ func (d *DB) GetBlock(hash []byte) (*blockchain.Block, error) {
 		return nil, fmt.Errorf("failed to decode block: %w", err)
 	}
 	return &block, nil
+}
+
+func (d *DB) GetLastestBlock() (*blockchain.Block, error) {
+	lastestHash, err := d.db.Get([]byte("lastest"), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lastest block hash: %w", err)
+	}
+	return d.GetBlock(lastestHash)
 }
 
 // Close closes the DB
