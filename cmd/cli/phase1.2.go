@@ -19,7 +19,7 @@ func main() {
 	tx2 := blockchain.NewTransaction(bAddr, aAddr, 5)
 	wallet.SignTransaction(tx2, bob)
 
-	block := blockchain.NewBlock([]*blockchain.Transaction{tx1, tx2}, []byte("prevhash"))
+	block := blockchain.NewBlock([]*blockchain.Transaction{tx1, tx2}, []byte("GENERIS"), 0)
 	fmt.Printf("📦 Block Hash: %x\n", block.CurrentBlockHash)
 	fmt.Printf("🌳 Merkle Root: %x\n", block.MerkleRoot)
 

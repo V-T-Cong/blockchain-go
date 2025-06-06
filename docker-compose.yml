@@ -1,0 +1,6 @@
+services:
+  node1:
+    environment:
+      NODE_ID: node1
+      IS_LEADER: "true"    # Chỉ node1 là leader
+      PEERS: node2:50051,node3:50051

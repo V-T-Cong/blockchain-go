@@ -52,8 +52,9 @@ func main() {
 		tx := blockchain.NewTransaction(senderAddr, receiverAddr, amount)
 		wallet.SignTransaction(tx, senderKey)
 
-		// Create and save block
-		block := blockchain.NewBlock([]*blockchain.Transaction{tx}, prevHash)
+		// ⚠️ FIX: Thêm height = i
+		block := blockchain.NewBlock([]*blockchain.Transaction{tx}, prevHash, i)
+
 		err := db.SaveBlock(block)
 		if err != nil {
 			log.Fatalf("❌ Failed to save block %d: %v", i, err)
@@ -65,15 +66,17 @@ func main() {
 	}
 
 	// Retrieve and print the last block
-	lastBlock, err := db.GetBlock(prevHash)
+	latestBlock, err := db.GetLatestBlock()
 	if err != nil {
-		log.Fatal("❌ Failed to retrieve last block:", err)
+		log.Fatal("❌ Failed to get latest block:", err)
 	}
+
+	fmt.Printf("⛓️ Latest Block Hash: %x\n", latestBlock.CurrentBlockHash)
 	fmt.Printf("\n📦 Last Block Info:\n")
-	fmt.Printf("🔑 Hash: %x\n", lastBlock.CurrentBlockHash)
-	fmt.Printf("🌲 Merkle Root: %x\n", lastBlock.MerkleRoot)
-	fmt.Printf("📜 Tx Count: %d\n", len(lastBlock.Transactions))
-	for i, tx := range lastBlock.Transactions {
+	fmt.Printf("🔑 Hash: %x\n", latestBlock.CurrentBlockHash)
+	fmt.Printf("🌲 Merkle Root: %x\n", latestBlock.MerkleRoot)
+	fmt.Printf("📜 Tx Count: %d\n", len(latestBlock.Transactions))
+	for i, tx := range latestBlock.Transactions {
 		fmt.Printf("🧾 Tx %d - From: %s To: %s Amount: %.2f\n",
 			i+1,
 			hex.EncodeToString(tx.Sender),
