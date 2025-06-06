@@ -2,7 +2,11 @@ syntax = "proto3";
 
 package node;
 
-option go_package = "blockchain/pkg/p2p/nodepb";
+option go_package = "proto/nodepb";
+
+// =========================
+// Transaction Structure
+// =========================
 
 message Transaction {
   bytes sender = 1;
@@ -12,35 +16,62 @@ message Transaction {
   bytes signature = 5;
 }
 
+// =========================
+// Block Structure
+// =========================
+
 message Block {
-  repeated Transaction transactions = 1;
-  bytes merkle_root = 2;
-  bytes previous_block_hash = 3;
-  bytes current_block_hash = 4;
-  int64 height = 5;
+  int64 height = 1;
+  repeated Transaction transactions = 2;
+  bytes merkleRoot = 3;
+  bytes previousBlockHash = 4;
+  bytes currentBlockHash = 5;
+  int64 timestamp = 6;
 }
+
+// =========================
+// Voting
+// =========================
 
 message Vote {
-  string node_id = 1;
-  bytes block_hash = 2;
-  bool accepted = 3;
+  string voterId = 1;
+  int64 blockHeight = 2;
+  bytes blockHash = 3;
+  bool approved = 4;
 }
+
+// =========================
+// Block Sync
+// =========================
 
 message BlockRequest {
-  int32 height = 1;
+  int64 height = 1;
 }
 
-message BlockResponse {
-  Block block = 1;
+message Empty {}
+
+message Status {
+  string message = 1;
+  bool success = 2;
 }
+
+// =========================
+// Node-to-Node Communication
+// =========================
 
 service NodeService {
-  rpc SendTransaction (Transaction) returns (Ack);
-  rpc ProposeBlock (Block) returns (Ack);
-  rpc SubmitVote  (Vote) returns (Ack);
-  rpc GetBlock (BlockRequest) returns (BlockResponse);
-}
+  // Send a signed transaction to a node
+  rpc SendTransaction(Transaction) returns (Status);
 
-message Ack {
-  string message = 1;
+  // Leader proposes a block to followers
+  rpc ProposeBlock(Block) returns (Status);
+
+  // Follower votes on proposed block
+  rpc VoteBlock(Vote) returns (Status);
+
+  // Sync: Get block by height
+  rpc GetBlock(BlockRequest) returns (Block);
+
+  // Sync: Get the latest block
+  rpc GetLatestBlock(Empty) returns (Block);
 }
