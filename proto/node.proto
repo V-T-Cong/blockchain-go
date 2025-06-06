@@ -17,6 +17,7 @@ message Block {
   bytes merkle_root = 2;
   bytes previous_block_hash = 3;
   bytes current_block_hash = 4;
+  int64 height = 5
 }
 
 message Vote {
