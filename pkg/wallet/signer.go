@@ -1,11 +1,13 @@
 package wallet
 
 import (
-	"blockchain-go/blockchain/pkg/p2p/nodepb"
 	"blockchain-go/pkg/blockchain"
+	"blockchain-go/proto/nodepb"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -23,7 +25,24 @@ func SignTransaction(tx *blockchain.Transaction, privKey *ecdsa.PrivateKey) erro
 		return err
 	}
 	tx.Signature = append(r.Bytes(), s.Bytes()...)
+
+	tx.PublicKey = elliptic.Marshal(privKey.PublicKey.Curve, privKey.PublicKey.X, privKey.PublicKey.Y)
 	return nil
+}
+
+func BytesToPublicKey(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
+	x, y := elliptic.Unmarshal(elliptic.P256(), pubKeyBytes)
+	if x == nil || y == nil {
+		return nil, errors.New("invalid public key bytes")
+	}
+
+	pubKey := &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     x,
+		Y:     y,
+	}
+
+	return pubKey, nil
 }
 
 func VerifyTransaction(tx *blockchain.Transaction, pubKey *ecdsa.PublicKey) bool {
