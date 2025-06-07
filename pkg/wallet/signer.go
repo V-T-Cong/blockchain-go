@@ -27,6 +27,7 @@ func SignTransaction(tx *blockchain.Transaction, privKey *ecdsa.PrivateKey) erro
 	tx.Signature = append(r.Bytes(), s.Bytes()...)
 
 	tx.PublicKey = elliptic.Marshal(privKey.PublicKey.Curve, privKey.PublicKey.X, privKey.PublicKey.Y)
+	// fmt.Printf("🧪 Generated PublicKey: %x\n", tx.PublicKey)
 	return nil
 }
 

@@ -5,9 +5,14 @@ import (
 	"log"
 	"time"
 
-	"blockchain-go/blockchain/pkg/p2p/nodepb"
+	"blockchain-go/proto/nodepb"
 	"google.golang.org/grpc"
 )
+
+type NodeClient struct {
+	conn   *grpc.ClientConn
+	client nodepb.NodeServiceClient
+}
 
 func SendTransactionToPeer(addr string, tx *nodepb.Transaction) {
 	conn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(3*time.Second))

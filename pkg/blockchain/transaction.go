@@ -12,6 +12,7 @@ type Transaction struct {
 	Amount    float64
 	Timestamp int64
 	Signature []byte
+	PublicKey []byte
 }
 
 func NewTransaction(sender, receiver []byte, amount float64) *Transaction {
@@ -26,6 +27,7 @@ func NewTransaction(sender, receiver []byte, amount float64) *Transaction {
 func (tx *Transaction) Hash() []byte {
 	txCopy := *tx
 	txCopy.Signature = nil
+	txCopy.PublicKey = nil
 	data, _ := json.Marshal(txCopy)
 	hash := sha256.Sum256(data)
 	return hash[:]

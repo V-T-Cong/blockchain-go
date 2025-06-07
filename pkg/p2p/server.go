@@ -4,46 +4,44 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 
-	"blockchain-go/blockchain/pkg/p2p/nodepb"
-	"google.golang.org/grpc"
+	"blockchain-go/pkg/blockchain"
+	"blockchain-go/pkg/wallet"
+	"blockchain-go/proto/nodepb"
 )
 
 type NodeServer struct {
 	nodepb.UnimplementedNodeServiceServer
-	NodeID string
+	PendingTxs []*blockchain.Transaction
 }
 
-func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Ack, error) {
-	log.Printf("Received transaction from: %x → %x\n", tx.Sender, tx.Receiver)
-	return &nodepb.Ack{Message: "Transaction received"}, nil
-}
+func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Status, error) {
+	fmt.Println("📩 Received transaction")
 
-func (s *NodeServer) ProposeBlock(ctx context.Context, b *nodepb.Block) (*nodepb.Ack, error) {
-	log.Printf("Received block proposal with %d transactions\n", len(b.Transactions))
-	return &nodepb.Ack{Message: "Block received"}, nil
-}
+	txInternal := &blockchain.Transaction{
+		Sender:    tx.Sender,
+		Receiver:  tx.Receiver,
+		Amount:    tx.Amount,
+		Timestamp: tx.Timestamp,
+		Signature: tx.Signature,
+		PublicKey: tx.PublicKey,
+	}
 
-func (s *NodeServer) Vote(ctx context.Context, v *nodepb.Vote) (*nodepb.Ack, error) {
-	log.Printf("Received vote from %s - accepted: %v\n", v.NodeId, v.Accepted)
-	return &nodepb.Ack{Message: "Vote received"}, nil
-}
-
-func (s *NodeServer) GetBlock(ctx context.Context, req *nodepb.BlockRequest) (*nodepb.BlockResponse, error) {
-	log.Printf("GetBlock request at height: %d\n", req.Height)
-	return &nodepb.BlockResponse{}, nil
-}
-
-func StartServer(port string, nodeID string) {
-	lis, err := net.Listen("tcp", ":"+port)
+	// fmt.Printf("🔐 PublicKey length (server): %d\n", len(tx.PublicKey))
+	// fmt.Printf("🧪 Received PublicKey: %x\n", tx.PublicKey)
+	pubKey, err := wallet.BytesToPublicKey(tx.PublicKey)
 	if err != nil {
-		log.Fatalf("❌ Failed to listen: %v", err)
+		log.Printf("Failed to parse public key: %v", err)
+		return &nodepb.Status{Success: false, Message: "Invalid public key"}, nil
 	}
-	server := grpc.NewServer()
-	nodepb.RegisterNodeServiceServer(server, &NodeServer{NodeID: nodeID})
-	fmt.Printf("🚀 Node %s listening on port %s\n", nodeID, port)
-	if err := server.Serve(lis); err != nil {
-		log.Fatalf("❌ Failed to serve: %v", err)
+
+	if !wallet.VerifyTransaction(txInternal, pubKey) {
+		log.Println("❌ Invalid signature")
+		return &nodepb.Status{Message: "Invalid signature", Success: false}, nil
 	}
+
+	s.PendingTxs = append(s.PendingTxs, txInternal)
+	log.Printf("✅ Tx added. Total pending: %d\n", len(s.PendingTxs))
+
+	return &nodepb.Status{Message: "Transaction received", Success: true}, nil
 }

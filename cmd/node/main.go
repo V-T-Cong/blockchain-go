@@ -1,12 +1,26 @@
 package main
 
 import (
+	"log"
+	"net"
+
 	"blockchain-go/pkg/p2p"
-	"os"
+	"blockchain-go/proto/nodepb"
+	"google.golang.org/grpc"
 )
 
 func main() {
-	nodeID := os.Getenv("NODE_ID")
-	port := os.Getenv("PORT")
-	p2p.StartServer(port, nodeID)
+	listener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("❌ Failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	server := &p2p.NodeServer{}
+	nodepb.RegisterNodeServiceServer(grpcServer, server)
+
+	log.Println("🚀 Node gRPC server started on :50051")
+	if err := grpcServer.Serve(listener); err != nil {
+		log.Fatalf("❌ Failed to serve: %v", err)
+	}
 }
