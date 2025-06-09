@@ -23,7 +23,7 @@ func main() {
 	tx := blockchain.NewTransaction(aliceAddr, bobAddr, 100)
 	wallet.SignTransaction(tx, alicePriv)
 
-	if wallet.VerifyTransaction(tx, &alicePriv.PublicKey) {
+	if blockchain.VerifyTransaction(tx, &alicePriv.PublicKey) {
 		fmt.Println("✅ Transaction from Alice to Bob is valid!")
 	} else {
 		fmt.Println("❌ Invalid transaction!")

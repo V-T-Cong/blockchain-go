@@ -420,14 +420,15 @@ const file_proto_node_proto_rawDesc = "" +
 	"\x05Empty\"<\n" +
 	"\x06Status\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x18\n" +
-	"\asuccess\x18\x02 \x01(\bR\asuccess2\xec\x01\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess2\x96\x02\n" +
 	"\vNodeService\x122\n" +
 	"\x0fSendTransaction\x12\x11.node.Transaction\x1a\f.node.Status\x12)\n" +
 	"\fProposeBlock\x12\v.node.Block\x1a\f.node.Status\x12%\n" +
 	"\tVoteBlock\x12\n" +
 	".node.Vote\x1a\f.node.Status\x12+\n" +
 	"\bGetBlock\x12\x12.node.BlockRequest\x1a\v.node.Block\x12*\n" +
-	"\x0eGetLatestBlock\x12\v.node.Empty\x1a\v.node.BlockB\x0eZ\fproto/nodepbb\x06proto3"
+	"\x0eGetLatestBlock\x12\v.node.Empty\x1a\v.node.Block\x12(\n" +
+	"\vCommitBlock\x12\v.node.Block\x1a\f.node.StatusB\x0eZ\fproto/nodepbb\x06proto3"
 
 var (
 	file_proto_node_proto_rawDescOnce sync.Once
@@ -457,13 +458,15 @@ var file_proto_node_proto_depIdxs = []int32{
 	2, // 3: node.NodeService.VoteBlock:input_type -> node.Vote
 	3, // 4: node.NodeService.GetBlock:input_type -> node.BlockRequest
 	4, // 5: node.NodeService.GetLatestBlock:input_type -> node.Empty
-	5, // 6: node.NodeService.SendTransaction:output_type -> node.Status
-	5, // 7: node.NodeService.ProposeBlock:output_type -> node.Status
-	5, // 8: node.NodeService.VoteBlock:output_type -> node.Status
-	1, // 9: node.NodeService.GetBlock:output_type -> node.Block
-	1, // 10: node.NodeService.GetLatestBlock:output_type -> node.Block
-	6, // [6:11] is the sub-list for method output_type
-	1, // [1:6] is the sub-list for method input_type
+	1, // 6: node.NodeService.CommitBlock:input_type -> node.Block
+	5, // 7: node.NodeService.SendTransaction:output_type -> node.Status
+	5, // 8: node.NodeService.ProposeBlock:output_type -> node.Status
+	5, // 9: node.NodeService.VoteBlock:output_type -> node.Status
+	1, // 10: node.NodeService.GetBlock:output_type -> node.Block
+	1, // 11: node.NodeService.GetLatestBlock:output_type -> node.Block
+	5, // 12: node.NodeService.CommitBlock:output_type -> node.Status
+	7, // [7:13] is the sub-list for method output_type
+	1, // [1:7] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name

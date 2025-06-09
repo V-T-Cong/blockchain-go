@@ -75,4 +75,7 @@ service NodeService {
 
   // Sync: Get the latest block
   rpc GetLatestBlock(Empty) returns (Block);
+
+  // Block commit
+  rpc CommitBlock(Block) returns (Status);
 }

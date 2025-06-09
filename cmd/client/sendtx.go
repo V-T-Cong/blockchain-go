@@ -22,7 +22,7 @@ func main() {
 	tx := &blockchain.Transaction{
 		Sender:    aAddr,
 		Receiver:  bAddr,
-		Amount:    42.0,
+		Amount:    500.0,
 		Timestamp: time.Now().Unix(),
 	}
 

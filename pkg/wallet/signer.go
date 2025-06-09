@@ -7,7 +7,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"math/big"
 )
@@ -29,28 +28,6 @@ func SignTransaction(tx *blockchain.Transaction, privKey *ecdsa.PrivateKey) erro
 	tx.PublicKey = elliptic.Marshal(privKey.PublicKey.Curve, privKey.PublicKey.X, privKey.PublicKey.Y)
 	// fmt.Printf("🧪 Generated PublicKey: %x\n", tx.PublicKey)
 	return nil
-}
-
-func BytesToPublicKey(pubKeyBytes []byte) (*ecdsa.PublicKey, error) {
-	x, y := elliptic.Unmarshal(elliptic.P256(), pubKeyBytes)
-	if x == nil || y == nil {
-		return nil, errors.New("invalid public key bytes")
-	}
-
-	pubKey := &ecdsa.PublicKey{
-		Curve: elliptic.P256(),
-		X:     x,
-		Y:     y,
-	}
-
-	return pubKey, nil
-}
-
-func VerifyTransaction(tx *blockchain.Transaction, pubKey *ecdsa.PublicKey) bool {
-	hash := tx.Hash()
-	r := new(big.Int).SetBytes(tx.Signature[:len(tx.Signature)/2])
-	s := new(big.Int).SetBytes(tx.Signature[len(tx.Signature)/2:])
-	return ecdsa.Verify(pubKey, hash, r, s)
 }
 
 // Hash only the important transaction fields
