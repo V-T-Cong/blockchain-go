@@ -25,6 +25,7 @@ func main() {
 		peerAddrs = strings.Split(peersEnv, ",")
 	}
 
+	total := len(peerAddrs) + 1
 	// === Khởi tạo DB ===
 	dbPath := "data/" + nodeID
 	if err := os.MkdirAll(dbPath, os.ModePerm); err != nil {
@@ -56,6 +57,7 @@ func main() {
 		BlockCommitted: make(map[string]bool),
 		VoteMutex:      sync.Mutex{},
 		PeerAddrs:      peerAddrs,
+		TotalNodes:     total,
 	}
 
 	// === Khởi động gRPC ===

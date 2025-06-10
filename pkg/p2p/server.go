@@ -28,7 +28,8 @@ type NodeServer struct {
 	BlockCommitted map[string]bool              // blockHash → committed status
 	VoteMutex      sync.Mutex                   // protect voteCount
 
-	PeerAddrs []string
+	PeerAddrs  []string
+	TotalNodes int
 }
 
 func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Status, error) {
@@ -123,8 +124,10 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 		voteCount := s.VoteCount[blockHashKey]
 		s.VoteMutex.Unlock()
 
+		needed := s.TotalNodes/2 + 1
+
 		// Majority vote = 2 in 3 nodes
-		if voteCount >= 2 && !s.BlockCommitted[blockHashKey] {
+		if voteCount >= needed && !s.BlockCommitted[blockHashKey] {
 			block := s.PendingBlocks[blockHashKey]
 			if block == nil {
 				return &nodepb.Status{Message: "Block not found", Success: false}, nil

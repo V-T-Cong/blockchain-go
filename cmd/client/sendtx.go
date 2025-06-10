@@ -19,18 +19,7 @@ func main() {
 	aAddr := wallet.PublicKeyToAddress(&aliceKey.PublicKey)
 	bAddr := wallet.PublicKeyToAddress(&bobKey.PublicKey)
 
-	tx := &blockchain.Transaction{
-		Sender:    aAddr,
-		Receiver:  bAddr,
-		Amount:    500.0,
-		Timestamp: time.Now().Unix(),
-	}
-
-	err := wallet.SignTransaction(tx, aliceKey)
-	if err != nil {
-		log.Fatalf("Failed to sign: %v", err)
-	}
-
+	// open connection
 	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 
 	if err != nil {
@@ -40,23 +29,37 @@ func main() {
 
 	client := nodepb.NewNodeServiceClient(conn)
 
-	// 5. Chuyển transaction thành protobuf
-	txProto := &nodepb.Transaction{
-		Sender:    tx.Sender,
-		Receiver:  tx.Receiver,
-		Amount:    tx.Amount,
-		Timestamp: tx.Timestamp,
-		Signature: tx.Signature,
-		PublicKey: tx.PublicKey,
+	amounts := []float64{500.0, 250.0, 100, 0}
+
+	for i, amt := range amounts {
+		tx := &blockchain.Transaction{
+			Sender:    aAddr,
+			Receiver:  bAddr,
+			Amount:    amt,
+			Timestamp: time.Now().Unix(),
+		}
+
+		err := wallet.SignTransaction(tx, aliceKey)
+		if err != nil {
+			log.Fatalf("Failed to sign transaction %d: %v", i+1, err)
+		}
+
+		// convert transaction to protobuf
+		txProto := &nodepb.Transaction{
+			Sender:    tx.Sender,
+			Receiver:  tx.Receiver,
+			Amount:    tx.Amount,
+			Timestamp: tx.Timestamp,
+			Signature: tx.Signature,
+			PublicKey: tx.PublicKey,
+		}
+
+		// fmt.Printf("🔐 PublicKey length (client): %d\n", len(tx.PublicKey))
+		res, err := client.SendTransaction(context.Background(), txProto)
+		if err != nil {
+			log.Fatalf("SendTransaction failed: %v", err)
+		}
+
+		log.Printf("✅ Response: %s (success: %v)", res.Message, res.Success)
 	}
-
-	// fmt.Printf("🔐 PublicKey length (client): %d\n", len(tx.PublicKey))
-
-	// 6. Gửi giao dịch
-	res, err := client.SendTransaction(context.Background(), txProto)
-	if err != nil {
-		log.Fatalf("SendTransaction failed: %v", err)
-	}
-
-	log.Printf("✅ Response: %s (success: %v)", res.Message, res.Success)
 }
