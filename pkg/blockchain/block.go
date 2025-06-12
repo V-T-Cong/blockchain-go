@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"blockchain-go/pkg/cryptohelper"
+	"blockchain-go/pkg/mpt"
 	"blockchain-go/proto/nodepb"
 	"bytes"
 	"crypto/sha256"
@@ -21,18 +22,19 @@ type Block struct {
 
 func NewBlock(transactions []*Transaction, previousBlockHash []byte, height int) *Block {
 	var txHashes [][]byte
+
 	for _, tx := range transactions {
 		txHashes = append(txHashes, tx.Hash())
 	}
 
 	fmt.Printf("txHashes: %x\n", txHashes)
 
-	merkleRoot := ComputeMerkleRoot(txHashes)
+	_, mptRoot := mpt.BuildMPTFromTxHashes(txHashes)
 
 	block := &Block{
 		Height:            int64(height),
 		Transactions:      transactions,
-		MerkleRoot:        merkleRoot,
+		MerkleRoot:        mptRoot,
 		PreviousBlockHash: previousBlockHash,
 		Timestamp:         time.Now().Unix(),
 	}
