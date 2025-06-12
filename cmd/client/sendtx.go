@@ -29,7 +29,7 @@ func main() {
 
 	client := nodepb.NewNodeServiceClient(conn)
 
-	amounts := []float64{500.0, 250.0, 100, 0}
+	amounts := []float64{500.0, 250.0}
 
 	for i, amt := range amounts {
 		tx := &blockchain.Transaction{

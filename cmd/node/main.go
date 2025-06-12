@@ -5,6 +5,7 @@ import (
 	"blockchain-go/pkg/p2p"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
+	"context"
 
 	"log"
 	"net"
@@ -14,6 +15,10 @@ import (
 
 	"google.golang.org/grpc"
 )
+
+func ctx() context.Context {
+	return context.Background()
+}
 
 func main() {
 	// === Cấu hình từ biến môi trường ===
@@ -58,6 +63,39 @@ func main() {
 		VoteMutex:      sync.Mutex{},
 		PeerAddrs:      peerAddrs,
 		TotalNodes:     total,
+	}
+
+	if nodeID != "node1" {
+		log.Println("🔄 Syncing blocks from leader...")
+
+		currentHeight := int64(-1)
+		if latestBlock != nil {
+			currentHeight = latestBlock.Height
+		}
+
+		conn, err := grpc.Dial(leaderAddr, grpc.WithInsecure())
+		if err != nil {
+			log.Fatalf("❌ Cannot connect to leader: %v", err)
+		}
+		defer conn.Close()
+
+		client := nodepb.NewNodeServiceClient(conn)
+
+		for {
+			req := &nodepb.BlockRequest{Height: currentHeight + 1}
+			pb, err := client.GetBlock(ctx(), req)
+			if err != nil {
+				log.Printf("✅ Sync done at height %d", currentHeight)
+				break
+			}
+
+			block := blockchain.ProtoToBlock(pb)
+			if err := db.SaveBlock(block); err != nil {
+				log.Fatalf("❌ Failed to save synced block: %v", err)
+			}
+			currentHeight++
+			log.Printf("⛓️ Synced block %d", currentHeight)
+		}
 	}
 
 	// === Khởi động gRPC ===

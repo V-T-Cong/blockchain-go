@@ -10,6 +10,9 @@ import (
 	"blockchain-go/pkg/cryptohelper"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type NodeServer struct {
@@ -30,6 +33,15 @@ type NodeServer struct {
 
 	PeerAddrs  []string
 	TotalNodes int
+}
+
+func (s *NodeServer) GetBlock(ctx context.Context, req *nodepb.BlockRequest) (*nodepb.Block, error) {
+	block, err := s.DB.GetBlockByHeight(int(req.Height))
+	if err != nil || block == nil {
+		log.Printf("❌ Block at height %d not found", req.Height)
+		return nil, status.Error(codes.NotFound, "Block not found")
+	}
+	return blockchain.BlockToProto(block), nil
 }
 
 func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Status, error) {
@@ -78,7 +90,7 @@ func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction
 
 		if len(s.PeerAddrs) > 0 {
 			log.Printf("📤 Proposing block to %d followers...\n", len(s.PeerAddrs))
-			go ProposeBlockToFollowers(block, s.PeerAddrs) // ✅ CHỈ GỌI 1 LẦN (async)
+			go ProposeBlockToFollowers(block, s.PeerAddrs)
 		}
 	}
 

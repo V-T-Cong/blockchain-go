@@ -10,7 +10,7 @@ services:
       NODE_ID: "node1"
       IS_LEADER: "true"
       LEADER_ADDR: "node1:50051"
-      PEERS: "node2:50051,node3:50051,node4:50051"
+      PEERS: "node2:50051,node3:50051"
     volumes:
       - ./data/node1:/app/data
 
@@ -23,7 +23,7 @@ services:
       NODE_ID: "node2"
       IS_LEADER: "false"
       LEADER_ADDR: "node1:50051"
-      PEERS: "node1:50051,node3:50051,node4:50051"
+      PEERS: "node1:50051,node3:50051"
     volumes:
       - ./data/node2:/app/data
 
@@ -36,19 +36,19 @@ services:
       NODE_ID: "node3"
       IS_LEADER: "false"
       LEADER_ADDR: "node1:50051"
-      PEERS: "node1:50051,node2:50051,node4:50051"
+      PEERS: "node1:50051,node2:50051"
     volumes:
       - ./data/node3:/app/data
 
-  follower3:
-    build: .
-    container_name: node4
-    ports:
-      - "50054:50051"
-    environment:
-      NODE_ID: "node4"
-      IS_LEADER: "false"
-      LEADER_ADDR: "node1:50051"
-      PEERS: "node1:50051,node2:50051,node3:50051"
-    volumes:
-      - ./data/node4:/app/data
+  # follower3:
+  #   build: .
+  #   container_name: node4
+  #   ports:
+  #     - "50054:50051"
+  #   environment:
+  #     NODE_ID: "node4"
+  #     IS_LEADER: "false"
+  #     LEADER_ADDR: "node1:50051"
+  #     PEERS: "node1:50051,node2:50051,node3:50051"
+  #   volumes:
+  #     - ./data/node4:/app/data

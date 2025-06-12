@@ -301,6 +301,50 @@ func (x *BlockRequest) GetHeight() int64 {
 	return 0
 }
 
+type GetBlock struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Height        int64                  `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBlock) Reset() {
+	*x = GetBlock{}
+	mi := &file_proto_node_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBlock) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBlock) ProtoMessage() {}
+
+func (x *GetBlock) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_node_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBlock.ProtoReflect.Descriptor instead.
+func (*GetBlock) Descriptor() ([]byte, []int) {
+	return file_proto_node_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetBlock) GetHeight() int64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
 type Empty struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -309,7 +353,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_proto_node_proto_msgTypes[4]
+	mi := &file_proto_node_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -321,7 +365,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_node_proto_msgTypes[4]
+	mi := &file_proto_node_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -334,7 +378,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_proto_node_proto_rawDescGZIP(), []int{4}
+	return file_proto_node_proto_rawDescGZIP(), []int{5}
 }
 
 type Status struct {
@@ -347,7 +391,7 @@ type Status struct {
 
 func (x *Status) Reset() {
 	*x = Status{}
-	mi := &file_proto_node_proto_msgTypes[5]
+	mi := &file_proto_node_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -359,7 +403,7 @@ func (x *Status) String() string {
 func (*Status) ProtoMessage() {}
 
 func (x *Status) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_node_proto_msgTypes[5]
+	mi := &file_proto_node_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -372,7 +416,7 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
-	return file_proto_node_proto_rawDescGZIP(), []int{5}
+	return file_proto_node_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Status) GetMessage() string {
@@ -416,6 +460,8 @@ const file_proto_node_proto_rawDesc = "" +
 	"\tblockHash\x18\x03 \x01(\fR\tblockHash\x12\x1a\n" +
 	"\bapproved\x18\x04 \x01(\bR\bapproved\"&\n" +
 	"\fBlockRequest\x12\x16\n" +
+	"\x06height\x18\x01 \x01(\x03R\x06height\"\"\n" +
+	"\bGetBlock\x12\x16\n" +
 	"\x06height\x18\x01 \x01(\x03R\x06height\"\a\n" +
 	"\x05Empty\"<\n" +
 	"\x06Status\x12\x18\n" +
@@ -442,14 +488,15 @@ func file_proto_node_proto_rawDescGZIP() []byte {
 	return file_proto_node_proto_rawDescData
 }
 
-var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_node_proto_goTypes = []any{
 	(*Transaction)(nil),  // 0: node.Transaction
 	(*Block)(nil),        // 1: node.Block
 	(*Vote)(nil),         // 2: node.Vote
 	(*BlockRequest)(nil), // 3: node.BlockRequest
-	(*Empty)(nil),        // 4: node.Empty
-	(*Status)(nil),       // 5: node.Status
+	(*GetBlock)(nil),     // 4: node.GetBlock
+	(*Empty)(nil),        // 5: node.Empty
+	(*Status)(nil),       // 6: node.Status
 }
 var file_proto_node_proto_depIdxs = []int32{
 	0, // 0: node.Block.transactions:type_name -> node.Transaction
@@ -457,14 +504,14 @@ var file_proto_node_proto_depIdxs = []int32{
 	1, // 2: node.NodeService.ProposeBlock:input_type -> node.Block
 	2, // 3: node.NodeService.VoteBlock:input_type -> node.Vote
 	3, // 4: node.NodeService.GetBlock:input_type -> node.BlockRequest
-	4, // 5: node.NodeService.GetLatestBlock:input_type -> node.Empty
+	5, // 5: node.NodeService.GetLatestBlock:input_type -> node.Empty
 	1, // 6: node.NodeService.CommitBlock:input_type -> node.Block
-	5, // 7: node.NodeService.SendTransaction:output_type -> node.Status
-	5, // 8: node.NodeService.ProposeBlock:output_type -> node.Status
-	5, // 9: node.NodeService.VoteBlock:output_type -> node.Status
+	6, // 7: node.NodeService.SendTransaction:output_type -> node.Status
+	6, // 8: node.NodeService.ProposeBlock:output_type -> node.Status
+	6, // 9: node.NodeService.VoteBlock:output_type -> node.Status
 	1, // 10: node.NodeService.GetBlock:output_type -> node.Block
 	1, // 11: node.NodeService.GetLatestBlock:output_type -> node.Block
-	5, // 12: node.NodeService.CommitBlock:output_type -> node.Status
+	6, // 12: node.NodeService.CommitBlock:output_type -> node.Status
 	7, // [7:13] is the sub-list for method output_type
 	1, // [1:7] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -483,7 +530,7 @@ func file_proto_node_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_node_proto_rawDesc), len(file_proto_node_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
