@@ -52,13 +52,13 @@ func (b *Block) Hash() []byte {
 }
 
 func ValidateBlock(block *Block, prevBlock *Block) bool {
-	// 1. Kiểm tra previous hash
+	// 1. Check previous hash (skip for genesis block)
 	if prevBlock != nil && !bytes.Equal(block.PreviousBlockHash, prevBlock.CurrentBlockHash) {
 		fmt.Println("❌ Invalid previous hash")
 		return false
 	}
 
-	// 2. Kiểm tra chữ ký từng giao dịch
+	// 2. Validate each transaction's signature
 	for _, tx := range block.Transactions {
 		pubKey, err := cryptohelper.BytesToPublicKey(tx.PublicKey)
 		if err != nil {
@@ -71,14 +71,14 @@ func ValidateBlock(block *Block, prevBlock *Block) bool {
 		}
 	}
 
-	// 3. Kiểm tra Merkle Root
+	// 3. Rebuild MPT and check root
 	var txHashes [][]byte
 	for _, tx := range block.Transactions {
 		txHashes = append(txHashes, tx.Hash())
 	}
-	computedRoot := ComputeMerkleRoot(txHashes)
+	_, computedRoot := mpt.BuildMPTFromTxHashes(txHashes)
 	if !bytes.Equal(block.MerkleRoot, computedRoot) {
-		fmt.Println("❌ Invalid Merkle root")
+		fmt.Println("❌ Invalid MPT Merkle root")
 		return false
 	}
 

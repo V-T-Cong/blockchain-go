@@ -20,6 +20,8 @@ type NodeServer struct {
 
 	NodeID      string
 	LeaderAddr  string
+	IsLeader    bool
+	LeaderID    string
 	DB          *storage.DB
 	LatestBlock *blockchain.Block
 
@@ -130,6 +132,27 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 
 	blockHashKey := string(vote.BlockHash)
 
+	if vote.VoterId == s.NodeID && s.IsLeader {
+		return &nodepb.Status{Message: "Vote ignored", Success: true}, nil
+	}
+
+	// Handle case when only one node exists
+	if s.TotalNodes == 1 {
+		block := s.PendingBlocks[blockHashKey]
+		if block == nil {
+			return &nodepb.Status{Message: "Block not found", Success: false}, nil
+		}
+		if !s.BlockCommitted[blockHashKey] {
+			status, err := s.CommitBlock(ctx, blockchain.BlockToProto(block))
+			if err != nil || !status.Success {
+				return &nodepb.Status{Message: "Commit failed", Success: false}, nil
+			}
+			s.BlockCommitted[blockHashKey] = true
+			fmt.Printf("✅ Block committed (single-node)! Height: %d\n", block.Height)
+		}
+		return &nodepb.Status{Message: "Block committed (single-node)", Success: true}, nil
+	}
+
 	if vote.Approved {
 		s.VoteMutex.Lock()
 		s.VoteCount[blockHashKey]++
@@ -138,7 +161,6 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 
 		needed := s.TotalNodes/2 + 1
 
-		// Majority vote = 2 in 3 nodes
 		if voteCount >= needed && !s.BlockCommitted[blockHashKey] {
 			block := s.PendingBlocks[blockHashKey]
 			if block == nil {

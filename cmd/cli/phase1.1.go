@@ -21,6 +21,7 @@ func main() {
 	fmt.Printf("Bob address:: %v\n", bobAddr)
 
 	tx := blockchain.NewTransaction(aliceAddr, bobAddr, 100)
+	fmt.Printf("Transactions:: %v\n", tx)
 	wallet.SignTransaction(tx, alicePriv)
 
 	if blockchain.VerifyTransaction(tx, &alicePriv.PublicKey) {

@@ -24,6 +24,8 @@ func main() {
 	// === Cấu hình từ biến môi trường ===
 	nodeID := os.Getenv("NODE_ID")
 	leaderAddr := os.Getenv("LEADER_ADDR")
+	isLeaderEnv := os.Getenv("IS_LEADER")
+	isLeader := strings.ToLower(isLeaderEnv) == "true"
 	peersEnv := os.Getenv("PEERS") // Ví dụ: node2:50051,node3:50051
 	peerAddrs := []string{}
 	if peersEnv != "" {
@@ -54,6 +56,7 @@ func main() {
 	server := &p2p.NodeServer{
 		NodeID:         nodeID,
 		LeaderAddr:     leaderAddr,
+		IsLeader:       isLeader,
 		DB:             db,
 		LatestBlock:    latestBlock,
 		PendingTxs:     []*blockchain.Transaction{},
