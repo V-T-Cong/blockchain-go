@@ -433,6 +433,94 @@ func (x *Status) GetSuccess() bool {
 	return false
 }
 
+type HeightRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FromHeight    int64                  `protobuf:"varint,1,opt,name=from_height,json=fromHeight,proto3" json:"from_height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeightRequest) Reset() {
+	*x = HeightRequest{}
+	mi := &file_proto_node_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeightRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeightRequest) ProtoMessage() {}
+
+func (x *HeightRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_node_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeightRequest.ProtoReflect.Descriptor instead.
+func (*HeightRequest) Descriptor() ([]byte, []int) {
+	return file_proto_node_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *HeightRequest) GetFromHeight() int64 {
+	if x != nil {
+		return x.FromHeight
+	}
+	return 0
+}
+
+type BlockList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Blocks        []*Block               `protobuf:"bytes,1,rep,name=blocks,proto3" json:"blocks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BlockList) Reset() {
+	*x = BlockList{}
+	mi := &file_proto_node_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BlockList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BlockList) ProtoMessage() {}
+
+func (x *BlockList) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_node_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BlockList.ProtoReflect.Descriptor instead.
+func (*BlockList) Descriptor() ([]byte, []int) {
+	return file_proto_node_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *BlockList) GetBlocks() []*Block {
+	if x != nil {
+		return x.Blocks
+	}
+	return nil
+}
+
 var File_proto_node_proto protoreflect.FileDescriptor
 
 const file_proto_node_proto_rawDesc = "" +
@@ -466,7 +554,12 @@ const file_proto_node_proto_rawDesc = "" +
 	"\x05Empty\"<\n" +
 	"\x06Status\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12\x18\n" +
-	"\asuccess\x18\x02 \x01(\bR\asuccess2\x96\x02\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\"0\n" +
+	"\rHeightRequest\x12\x1f\n" +
+	"\vfrom_height\x18\x01 \x01(\x03R\n" +
+	"fromHeight\"0\n" +
+	"\tBlockList\x12#\n" +
+	"\x06blocks\x18\x01 \x03(\v2\v.node.BlockR\x06blocks2\xd2\x02\n" +
 	"\vNodeService\x122\n" +
 	"\x0fSendTransaction\x12\x11.node.Transaction\x1a\f.node.Status\x12)\n" +
 	"\fProposeBlock\x12\v.node.Block\x1a\f.node.Status\x12%\n" +
@@ -474,7 +567,8 @@ const file_proto_node_proto_rawDesc = "" +
 	".node.Vote\x1a\f.node.Status\x12+\n" +
 	"\bGetBlock\x12\x12.node.BlockRequest\x1a\v.node.Block\x12*\n" +
 	"\x0eGetLatestBlock\x12\v.node.Empty\x1a\v.node.Block\x12(\n" +
-	"\vCommitBlock\x12\v.node.Block\x1a\f.node.StatusB\x0eZ\fproto/nodepbb\x06proto3"
+	"\vCommitBlock\x12\v.node.Block\x1a\f.node.Status\x12:\n" +
+	"\x12GetBlockFromHeight\x12\x13.node.HeightRequest\x1a\x0f.node.BlockListB\x0eZ\fproto/nodepbb\x06proto3"
 
 var (
 	file_proto_node_proto_rawDescOnce sync.Once
@@ -488,35 +582,40 @@ func file_proto_node_proto_rawDescGZIP() []byte {
 	return file_proto_node_proto_rawDescData
 }
 
-var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_proto_node_proto_goTypes = []any{
-	(*Transaction)(nil),  // 0: node.Transaction
-	(*Block)(nil),        // 1: node.Block
-	(*Vote)(nil),         // 2: node.Vote
-	(*BlockRequest)(nil), // 3: node.BlockRequest
-	(*GetBlock)(nil),     // 4: node.GetBlock
-	(*Empty)(nil),        // 5: node.Empty
-	(*Status)(nil),       // 6: node.Status
+	(*Transaction)(nil),   // 0: node.Transaction
+	(*Block)(nil),         // 1: node.Block
+	(*Vote)(nil),          // 2: node.Vote
+	(*BlockRequest)(nil),  // 3: node.BlockRequest
+	(*GetBlock)(nil),      // 4: node.GetBlock
+	(*Empty)(nil),         // 5: node.Empty
+	(*Status)(nil),        // 6: node.Status
+	(*HeightRequest)(nil), // 7: node.HeightRequest
+	(*BlockList)(nil),     // 8: node.BlockList
 }
 var file_proto_node_proto_depIdxs = []int32{
 	0, // 0: node.Block.transactions:type_name -> node.Transaction
-	0, // 1: node.NodeService.SendTransaction:input_type -> node.Transaction
-	1, // 2: node.NodeService.ProposeBlock:input_type -> node.Block
-	2, // 3: node.NodeService.VoteBlock:input_type -> node.Vote
-	3, // 4: node.NodeService.GetBlock:input_type -> node.BlockRequest
-	5, // 5: node.NodeService.GetLatestBlock:input_type -> node.Empty
-	1, // 6: node.NodeService.CommitBlock:input_type -> node.Block
-	6, // 7: node.NodeService.SendTransaction:output_type -> node.Status
-	6, // 8: node.NodeService.ProposeBlock:output_type -> node.Status
-	6, // 9: node.NodeService.VoteBlock:output_type -> node.Status
-	1, // 10: node.NodeService.GetBlock:output_type -> node.Block
-	1, // 11: node.NodeService.GetLatestBlock:output_type -> node.Block
-	6, // 12: node.NodeService.CommitBlock:output_type -> node.Status
-	7, // [7:13] is the sub-list for method output_type
-	1, // [1:7] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: node.BlockList.blocks:type_name -> node.Block
+	0, // 2: node.NodeService.SendTransaction:input_type -> node.Transaction
+	1, // 3: node.NodeService.ProposeBlock:input_type -> node.Block
+	2, // 4: node.NodeService.VoteBlock:input_type -> node.Vote
+	3, // 5: node.NodeService.GetBlock:input_type -> node.BlockRequest
+	5, // 6: node.NodeService.GetLatestBlock:input_type -> node.Empty
+	1, // 7: node.NodeService.CommitBlock:input_type -> node.Block
+	7, // 8: node.NodeService.GetBlockFromHeight:input_type -> node.HeightRequest
+	6, // 9: node.NodeService.SendTransaction:output_type -> node.Status
+	6, // 10: node.NodeService.ProposeBlock:output_type -> node.Status
+	6, // 11: node.NodeService.VoteBlock:output_type -> node.Status
+	1, // 12: node.NodeService.GetBlock:output_type -> node.Block
+	1, // 13: node.NodeService.GetLatestBlock:output_type -> node.Block
+	6, // 14: node.NodeService.CommitBlock:output_type -> node.Status
+	8, // 15: node.NodeService.GetBlockFromHeight:output_type -> node.BlockList
+	9, // [9:16] is the sub-list for method output_type
+	2, // [2:9] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_node_proto_init() }
@@ -530,7 +629,7 @@ func file_proto_node_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_node_proto_rawDesc), len(file_proto_node_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

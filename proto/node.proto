@@ -60,6 +60,14 @@ message Status {
   bool success = 2;
 }
 
+message HeightRequest {
+  int64 from_height = 1;
+}
+
+message BlockList {
+  repeated Block blocks = 1;
+}
+
 // =========================
 // Node-to-Node Communication
 // =========================
@@ -82,4 +90,7 @@ service NodeService {
 
   // Block commit
   rpc CommitBlock(Block) returns (Status);
+
+
+  rpc GetBlockFromHeight(HeightRequest) returns (BlockList);
 }

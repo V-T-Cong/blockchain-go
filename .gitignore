@@ -4,3 +4,5 @@ data/
 blockchain/
 note.txt
 data/testdb/
+
+./pkg/storage/mock_storage.go

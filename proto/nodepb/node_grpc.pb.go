@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NodeService_SendTransaction_FullMethodName = "/node.NodeService/SendTransaction"
-	NodeService_ProposeBlock_FullMethodName    = "/node.NodeService/ProposeBlock"
-	NodeService_VoteBlock_FullMethodName       = "/node.NodeService/VoteBlock"
-	NodeService_GetBlock_FullMethodName        = "/node.NodeService/GetBlock"
-	NodeService_GetLatestBlock_FullMethodName  = "/node.NodeService/GetLatestBlock"
-	NodeService_CommitBlock_FullMethodName     = "/node.NodeService/CommitBlock"
+	NodeService_SendTransaction_FullMethodName    = "/node.NodeService/SendTransaction"
+	NodeService_ProposeBlock_FullMethodName       = "/node.NodeService/ProposeBlock"
+	NodeService_VoteBlock_FullMethodName          = "/node.NodeService/VoteBlock"
+	NodeService_GetBlock_FullMethodName           = "/node.NodeService/GetBlock"
+	NodeService_GetLatestBlock_FullMethodName     = "/node.NodeService/GetLatestBlock"
+	NodeService_CommitBlock_FullMethodName        = "/node.NodeService/CommitBlock"
+	NodeService_GetBlockFromHeight_FullMethodName = "/node.NodeService/GetBlockFromHeight"
 )
 
 // NodeServiceClient is the client API for NodeService service.
@@ -43,6 +44,7 @@ type NodeServiceClient interface {
 	GetLatestBlock(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Block, error)
 	// Block commit
 	CommitBlock(ctx context.Context, in *Block, opts ...grpc.CallOption) (*Status, error)
+	GetBlockFromHeight(ctx context.Context, in *HeightRequest, opts ...grpc.CallOption) (*BlockList, error)
 }
 
 type nodeServiceClient struct {
@@ -113,6 +115,16 @@ func (c *nodeServiceClient) CommitBlock(ctx context.Context, in *Block, opts ...
 	return out, nil
 }
 
+func (c *nodeServiceClient) GetBlockFromHeight(ctx context.Context, in *HeightRequest, opts ...grpc.CallOption) (*BlockList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BlockList)
+	err := c.cc.Invoke(ctx, NodeService_GetBlockFromHeight_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeServiceServer is the server API for NodeService service.
 // All implementations must embed UnimplementedNodeServiceServer
 // for forward compatibility.
@@ -129,6 +141,7 @@ type NodeServiceServer interface {
 	GetLatestBlock(context.Context, *Empty) (*Block, error)
 	// Block commit
 	CommitBlock(context.Context, *Block) (*Status, error)
+	GetBlockFromHeight(context.Context, *HeightRequest) (*BlockList, error)
 	mustEmbedUnimplementedNodeServiceServer()
 }
 
@@ -156,6 +169,9 @@ func (UnimplementedNodeServiceServer) GetLatestBlock(context.Context, *Empty) (*
 }
 func (UnimplementedNodeServiceServer) CommitBlock(context.Context, *Block) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitBlock not implemented")
+}
+func (UnimplementedNodeServiceServer) GetBlockFromHeight(context.Context, *HeightRequest) (*BlockList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlockFromHeight not implemented")
 }
 func (UnimplementedNodeServiceServer) mustEmbedUnimplementedNodeServiceServer() {}
 func (UnimplementedNodeServiceServer) testEmbeddedByValue()                     {}
@@ -286,6 +302,24 @@ func _NodeService_CommitBlock_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeService_GetBlockFromHeight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeightRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).GetBlockFromHeight(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_GetBlockFromHeight_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).GetBlockFromHeight(ctx, req.(*HeightRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeService_ServiceDesc is the grpc.ServiceDesc for NodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -316,6 +350,10 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CommitBlock",
 			Handler:    _NodeService_CommitBlock_Handler,
+		},
+		{
+			MethodName: "GetBlockFromHeight",
+			Handler:    _NodeService_GetBlockFromHeight_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

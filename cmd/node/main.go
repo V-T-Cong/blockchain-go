@@ -2,16 +2,17 @@ package main
 
 import (
 	"blockchain-go/pkg/blockchain"
-	"blockchain-go/pkg/p2p"
+	"blockchain-go/pkg/p2p_v2"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
-	"context"
 
+	"context"
 	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -24,6 +25,9 @@ func main() {
 	// === Cấu hình từ biến môi trường ===
 	nodeID := os.Getenv("NODE_ID")
 	leaderAddr := os.Getenv("LEADER_ADDR")
+	if leaderAddr == "" {
+		log.Fatal("❌ LEADER_ADDR is not set")
+	}
 	isLeaderEnv := os.Getenv("IS_LEADER")
 	isLeader := strings.ToLower(isLeaderEnv) == "true"
 	peersEnv := os.Getenv("PEERS") // Ví dụ: node2:50051,node3:50051
@@ -53,7 +57,7 @@ func main() {
 	}
 
 	// === Tạo server node ===
-	server := &p2p.NodeServer{
+	server := &p2p_v2.NodeServer{
 		NodeID:         nodeID,
 		LeaderAddr:     leaderAddr,
 		IsLeader:       isLeader,
@@ -71,33 +75,49 @@ func main() {
 	if nodeID != "node1" {
 		log.Println("🔄 Syncing blocks from leader...")
 
-		currentHeight := int64(-1)
+		startHeight := 0
 		if latestBlock != nil {
-			currentHeight = latestBlock.Height
+			startHeight = int(latestBlock.Height) + 1
 		}
 
-		conn, err := grpc.Dial(leaderAddr, grpc.WithInsecure())
-		if err != nil {
-			log.Fatalf("❌ Cannot connect to leader: %v", err)
-		}
-		defer conn.Close()
+		var res *nodepb.BlockList
+		var err error
 
-		client := nodepb.NewNodeServiceClient(conn)
+		for attempt := 1; attempt <= 5; attempt++ {
+			conn, connErr := grpc.Dial(leaderAddr, grpc.WithInsecure())
+			if connErr != nil {
+				log.Printf("⏳ [Attempt %d] Waiting for leader at %s...", attempt, leaderAddr)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			defer conn.Close()
 
-		for {
-			req := &nodepb.BlockRequest{Height: currentHeight + 1}
-			pb, err := client.GetBlock(ctx(), req)
+			client := nodepb.NewNodeServiceClient(conn)
+			res, err = client.GetBlockFromHeight(ctx(), &nodepb.HeightRequest{FromHeight: int64(startHeight)})
+
 			if err != nil {
-				log.Printf("✅ Sync done at height %d", currentHeight)
-				break
+				log.Printf("❌ [Attempt %d] Sync failed: %v", attempt, err)
+				time.Sleep(2 * time.Second)
+				continue
 			}
 
-			block := blockchain.ProtoToBlock(pb)
-			if err := db.SaveBlock(block); err != nil {
-				log.Fatalf("❌ Failed to save synced block: %v", err)
+			break // thành công
+		}
+
+		if err != nil {
+			log.Fatalf("❌ Sync failed after retries: %v", err)
+		}
+
+		if len(res.Blocks) == 0 {
+			log.Printf("✅ Sync done at height %d (no new blocks)", startHeight-1)
+		} else {
+			for _, pb := range res.Blocks {
+				block := blockchain.ProtoToBlock(pb)
+				if err := db.SaveBlock(block); err != nil {
+					log.Fatalf("❌ Failed to save synced block: %v", err)
+				}
+				log.Printf("⛓️ Synced block at height %d", block.Height)
 			}
-			currentHeight++
-			log.Printf("⛓️ Synced block %d", currentHeight)
 		}
 	}
 
