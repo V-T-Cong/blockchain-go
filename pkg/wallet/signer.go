@@ -11,11 +11,11 @@ import (
 	"math/big"
 )
 
-func PublicKeyToAddress(pub *ecdsa.PublicKey) []byte {
-	pubBytes := append(pub.X.Bytes(), pub.Y.Bytes()...)
-	hash := sha256.Sum256(pubBytes)
-	return hash[:]
-}
+// func PublicKeyToAddress(pub *ecdsa.PublicKey) []byte {
+// 	pubBytes := append(pub.X.Bytes(), pub.Y.Bytes()...)
+// 	hash := sha256.Sum256(pubBytes)
+// 	return hash[:]
+// }
 
 func SignTransaction(tx *blockchain.Transaction, privKey *ecdsa.PrivateKey) error {
 	hash := tx.Hash()

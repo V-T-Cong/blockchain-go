@@ -5,6 +5,7 @@ import "crypto/sha256"
 type Node interface {
 	Hash() []byte
 	Insert([]byte, []byte) Node
+	Get(path []byte) ([]byte, bool)
 	GenerateProof([]byte) [][]byte
 }
 
@@ -28,6 +29,13 @@ func (l *LeafNode) Insert(path []byte, value []byte) Node {
 	branch := NewBranchNode()
 	branch.Insert(l.Key, l.Value)
 	return branch.Insert(path, value)
+}
+
+func (l *LeafNode) Get(path []byte) ([]byte, bool) {
+	if Equal(path, l.Key) {
+		return l.Value, true
+	}
+	return nil, false
 }
 
 func (l *LeafNode) GenerateProof(path []byte) [][]byte {
@@ -78,6 +86,21 @@ func (b *BranchNode) Insert(path []byte, value []byte) Node {
 		b.Branches[index] = child.Insert(path[1:], value)
 	}
 	return b
+}
+
+func (b *BranchNode) Get(path []byte) ([]byte, bool) {
+	if len(path) == 0 {
+		if b.Value != nil {
+			return b.Value, true
+		}
+		return nil, false
+	}
+	index := path[0]
+	child := b.Branches[index]
+	if child != nil {
+		return child.Get(path[1:])
+	}
+	return nil, false
 }
 
 func (b *BranchNode) GenerateProof(path []byte) [][]byte {

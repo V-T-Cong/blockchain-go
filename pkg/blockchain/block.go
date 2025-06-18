@@ -15,6 +15,7 @@ type Block struct {
 	Height            int64
 	Transactions      []*Transaction
 	MerkleRoot        []byte
+	StateRoot         []byte
 	PreviousBlockHash []byte
 	CurrentBlockHash  []byte
 	Timestamp         int64
@@ -27,7 +28,7 @@ func NewBlock(transactions []*Transaction, previousBlockHash []byte, height int)
 		txHashes = append(txHashes, tx.Hash())
 	}
 
-	fmt.Printf("txHashes: %x\n", txHashes)
+	// fmt.Printf("txHashes: %x\n", txHashes)
 
 	_, mptRoot := mpt.BuildMPTFromTxHashes(txHashes)
 

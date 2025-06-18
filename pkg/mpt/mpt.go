@@ -15,6 +15,11 @@ func (m *MPT) Insert(key []byte, value []byte) {
 	m.Root = m.Root.Insert(nibbles, value)
 }
 
+func (m *MPT) Get(key []byte) ([]byte, bool) {
+	nibbles := BytesToNibbles(key)
+	return m.Root.Get(nibbles)
+}
+
 func (m *MPT) RootHash() []byte {
 	return m.Root.Hash()
 }
