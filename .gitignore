@@ -6,3 +6,4 @@ note.txt
 data/testdb/
 
 ./pkg/storage/mock_storage.go
+wallets/
