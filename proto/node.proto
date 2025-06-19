@@ -68,6 +68,15 @@ message BlockList {
   repeated Block blocks = 1;
 }
 
+message GetBalanceRequest {
+    string address = 1;
+}
+
+message GetBalanceResponse {
+    double balance = 1;
+    string address = 2;
+}
+
 // =========================
 // Node-to-Node Communication
 // =========================
@@ -91,6 +100,9 @@ service NodeService {
   // Block commit
   rpc CommitBlock(Block) returns (Status);
 
-
+  // Get Block from height
   rpc GetBlockFromHeight(HeightRequest) returns (BlockList);
+
+  // Get balance
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
 }

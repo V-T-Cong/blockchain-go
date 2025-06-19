@@ -521,6 +521,102 @@ func (x *BlockList) GetBlocks() []*Block {
 	return nil
 }
 
+type GetBalanceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBalanceRequest) Reset() {
+	*x = GetBalanceRequest{}
+	mi := &file_proto_node_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBalanceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBalanceRequest) ProtoMessage() {}
+
+func (x *GetBalanceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_node_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBalanceRequest.ProtoReflect.Descriptor instead.
+func (*GetBalanceRequest) Descriptor() ([]byte, []int) {
+	return file_proto_node_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetBalanceRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type GetBalanceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Balance       float64                `protobuf:"fixed64,1,opt,name=balance,proto3" json:"balance,omitempty"`
+	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBalanceResponse) Reset() {
+	*x = GetBalanceResponse{}
+	mi := &file_proto_node_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBalanceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBalanceResponse) ProtoMessage() {}
+
+func (x *GetBalanceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_node_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBalanceResponse.ProtoReflect.Descriptor instead.
+func (*GetBalanceResponse) Descriptor() ([]byte, []int) {
+	return file_proto_node_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetBalanceResponse) GetBalance() float64 {
+	if x != nil {
+		return x.Balance
+	}
+	return 0
+}
+
+func (x *GetBalanceResponse) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
 var File_proto_node_proto protoreflect.FileDescriptor
 
 const file_proto_node_proto_rawDesc = "" +
@@ -559,7 +655,12 @@ const file_proto_node_proto_rawDesc = "" +
 	"\vfrom_height\x18\x01 \x01(\x03R\n" +
 	"fromHeight\"0\n" +
 	"\tBlockList\x12#\n" +
-	"\x06blocks\x18\x01 \x03(\v2\v.node.BlockR\x06blocks2\xd2\x02\n" +
+	"\x06blocks\x18\x01 \x03(\v2\v.node.BlockR\x06blocks\"-\n" +
+	"\x11GetBalanceRequest\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\"H\n" +
+	"\x12GetBalanceResponse\x12\x18\n" +
+	"\abalance\x18\x01 \x01(\x01R\abalance\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress2\x93\x03\n" +
 	"\vNodeService\x122\n" +
 	"\x0fSendTransaction\x12\x11.node.Transaction\x1a\f.node.Status\x12)\n" +
 	"\fProposeBlock\x12\v.node.Block\x1a\f.node.Status\x12%\n" +
@@ -568,7 +669,9 @@ const file_proto_node_proto_rawDesc = "" +
 	"\bGetBlock\x12\x12.node.BlockRequest\x1a\v.node.Block\x12*\n" +
 	"\x0eGetLatestBlock\x12\v.node.Empty\x1a\v.node.Block\x12(\n" +
 	"\vCommitBlock\x12\v.node.Block\x1a\f.node.Status\x12:\n" +
-	"\x12GetBlockFromHeight\x12\x13.node.HeightRequest\x1a\x0f.node.BlockListB\x0eZ\fproto/nodepbb\x06proto3"
+	"\x12GetBlockFromHeight\x12\x13.node.HeightRequest\x1a\x0f.node.BlockList\x12?\n" +
+	"\n" +
+	"GetBalance\x12\x17.node.GetBalanceRequest\x1a\x18.node.GetBalanceResponseB\x0eZ\fproto/nodepbb\x06proto3"
 
 var (
 	file_proto_node_proto_rawDescOnce sync.Once
@@ -582,40 +685,44 @@ func file_proto_node_proto_rawDescGZIP() []byte {
 	return file_proto_node_proto_rawDescData
 }
 
-var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_proto_node_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_proto_node_proto_goTypes = []any{
-	(*Transaction)(nil),   // 0: node.Transaction
-	(*Block)(nil),         // 1: node.Block
-	(*Vote)(nil),          // 2: node.Vote
-	(*BlockRequest)(nil),  // 3: node.BlockRequest
-	(*GetBlock)(nil),      // 4: node.GetBlock
-	(*Empty)(nil),         // 5: node.Empty
-	(*Status)(nil),        // 6: node.Status
-	(*HeightRequest)(nil), // 7: node.HeightRequest
-	(*BlockList)(nil),     // 8: node.BlockList
+	(*Transaction)(nil),        // 0: node.Transaction
+	(*Block)(nil),              // 1: node.Block
+	(*Vote)(nil),               // 2: node.Vote
+	(*BlockRequest)(nil),       // 3: node.BlockRequest
+	(*GetBlock)(nil),           // 4: node.GetBlock
+	(*Empty)(nil),              // 5: node.Empty
+	(*Status)(nil),             // 6: node.Status
+	(*HeightRequest)(nil),      // 7: node.HeightRequest
+	(*BlockList)(nil),          // 8: node.BlockList
+	(*GetBalanceRequest)(nil),  // 9: node.GetBalanceRequest
+	(*GetBalanceResponse)(nil), // 10: node.GetBalanceResponse
 }
 var file_proto_node_proto_depIdxs = []int32{
-	0, // 0: node.Block.transactions:type_name -> node.Transaction
-	1, // 1: node.BlockList.blocks:type_name -> node.Block
-	0, // 2: node.NodeService.SendTransaction:input_type -> node.Transaction
-	1, // 3: node.NodeService.ProposeBlock:input_type -> node.Block
-	2, // 4: node.NodeService.VoteBlock:input_type -> node.Vote
-	3, // 5: node.NodeService.GetBlock:input_type -> node.BlockRequest
-	5, // 6: node.NodeService.GetLatestBlock:input_type -> node.Empty
-	1, // 7: node.NodeService.CommitBlock:input_type -> node.Block
-	7, // 8: node.NodeService.GetBlockFromHeight:input_type -> node.HeightRequest
-	6, // 9: node.NodeService.SendTransaction:output_type -> node.Status
-	6, // 10: node.NodeService.ProposeBlock:output_type -> node.Status
-	6, // 11: node.NodeService.VoteBlock:output_type -> node.Status
-	1, // 12: node.NodeService.GetBlock:output_type -> node.Block
-	1, // 13: node.NodeService.GetLatestBlock:output_type -> node.Block
-	6, // 14: node.NodeService.CommitBlock:output_type -> node.Status
-	8, // 15: node.NodeService.GetBlockFromHeight:output_type -> node.BlockList
-	9, // [9:16] is the sub-list for method output_type
-	2, // [2:9] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0,  // 0: node.Block.transactions:type_name -> node.Transaction
+	1,  // 1: node.BlockList.blocks:type_name -> node.Block
+	0,  // 2: node.NodeService.SendTransaction:input_type -> node.Transaction
+	1,  // 3: node.NodeService.ProposeBlock:input_type -> node.Block
+	2,  // 4: node.NodeService.VoteBlock:input_type -> node.Vote
+	3,  // 5: node.NodeService.GetBlock:input_type -> node.BlockRequest
+	5,  // 6: node.NodeService.GetLatestBlock:input_type -> node.Empty
+	1,  // 7: node.NodeService.CommitBlock:input_type -> node.Block
+	7,  // 8: node.NodeService.GetBlockFromHeight:input_type -> node.HeightRequest
+	9,  // 9: node.NodeService.GetBalance:input_type -> node.GetBalanceRequest
+	6,  // 10: node.NodeService.SendTransaction:output_type -> node.Status
+	6,  // 11: node.NodeService.ProposeBlock:output_type -> node.Status
+	6,  // 12: node.NodeService.VoteBlock:output_type -> node.Status
+	1,  // 13: node.NodeService.GetBlock:output_type -> node.Block
+	1,  // 14: node.NodeService.GetLatestBlock:output_type -> node.Block
+	6,  // 15: node.NodeService.CommitBlock:output_type -> node.Status
+	8,  // 16: node.NodeService.GetBlockFromHeight:output_type -> node.BlockList
+	10, // 17: node.NodeService.GetBalance:output_type -> node.GetBalanceResponse
+	10, // [10:18] is the sub-list for method output_type
+	2,  // [2:10] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_node_proto_init() }
@@ -629,7 +736,7 @@ func file_proto_node_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_node_proto_rawDesc), len(file_proto_node_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -3,8 +3,11 @@ package main
 import (
 	"blockchain-go/pkg/blockchain"
 	"blockchain-go/pkg/p2p_v2"
+	"blockchain-go/pkg/state"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
+	"encoding/json"
+	"errors"
 
 	"context"
 	"log"
@@ -14,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
 	"google.golang.org/grpc"
 )
 
@@ -37,6 +41,7 @@ func main() {
 	}
 
 	total := len(peerAddrs) + 1
+
 	// === Khởi tạo DB ===
 	dbPath := "data/" + nodeID
 	if err := os.MkdirAll(dbPath, os.ModePerm); err != nil {
@@ -47,6 +52,41 @@ func main() {
 		log.Fatalf("❌ Failed to open DB: %v", err)
 	}
 	defer db.Close()
+
+	// =============
+
+	// === APPLY GENESIS BLOCK ===
+	_, err = db.GetLatestBlock()
+	if err != nil {
+		if errors.Is(err, leveldb.ErrNotFound) {
+			log.Printf("🌱 Node %s: Database is empty. Loading genesis block...", nodeID)
+			genesisData, err := os.ReadFile("genesis.dat")
+			if err != nil {
+				log.Fatalf("❌ Could not read genesis.dat: %v.", err)
+			}
+			var genesisBlock blockchain.Block
+			if err := json.Unmarshal(genesisData, &genesisBlock); err != nil {
+				log.Fatalf("❌ Failed to parse genesis block: %v", err)
+			}
+			if err := db.SaveBlock(&genesisBlock); err != nil {
+				log.Fatalf("❌ Failed to save genesis block to DB: %v", err)
+			}
+			log.Printf("✅ Node %s: Genesis block loaded and saved to DB.", nodeID)
+		} else {
+			log.Fatalf("❌ Error checking for latest block: %v", err)
+		}
+	}
+
+	// === Khởi tạo State Manager ===
+	stateManager, err := state.NewState(db)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize state manager: %v", err)
+	}
+
+	// === Xây dựng lại trạng thái từ blockchain ===
+	if err := stateManager.RebuildStateFromBlockchain(); err != nil {
+		log.Fatalf("❌ Failed to rebuild state: %v", err)
+	}
 
 	// === Lấy block cuối cùng nếu có ===
 	latestBlock, _ := db.GetLatestBlock()
@@ -62,6 +102,7 @@ func main() {
 		LeaderAddr:     leaderAddr,
 		IsLeader:       isLeader,
 		DB:             db,
+		State:          stateManager,
 		LatestBlock:    latestBlock,
 		PendingTxs:     []*blockchain.Transaction{},
 		PendingBlocks:  make(map[string]*blockchain.Block),
@@ -111,13 +152,23 @@ func main() {
 		if len(res.Blocks) == 0 {
 			log.Printf("✅ Sync done at height %d (no new blocks)", startHeight-1)
 		} else {
+			log.Printf("⛓️ Received %d blocks from leader. Applying...", len(res.Blocks))
 			for _, pb := range res.Blocks {
 				block := blockchain.ProtoToBlock(pb)
+				// Lưu block vào DB của follower
 				if err := db.SaveBlock(block); err != nil {
 					log.Fatalf("❌ Failed to save synced block: %v", err)
 				}
-				log.Printf("⛓️ Synced block at height %d", block.Height)
+
+				// CẬP NHẬT STATE CỦA FOLLOWER - ĐÂY LÀ PHẦN THIẾU
+				for _, tx := range block.Transactions {
+					if err := stateManager.ApplyTransaction(tx); err != nil {
+						log.Printf("❌ Failed to apply transaction from synced block %d: %v", block.Height, err)
+					}
+				}
+				log.Printf("⛓️ Synced and applied block at height %d", block.Height)
 			}
+			latestBlock, _ = db.GetLatestBlock()
 		}
 	}
 

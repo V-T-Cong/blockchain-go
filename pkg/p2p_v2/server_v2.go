@@ -3,6 +3,7 @@ package p2p_v2
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"sync"
@@ -11,8 +12,12 @@ import (
 	"blockchain-go/pkg/blockchain"
 	"blockchain-go/pkg/cryptohelper"
 	"blockchain-go/pkg/mpt"
+	"blockchain-go/pkg/state"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	// "golang.org/x/tools/go/analysis/passes/defers"
 	// "google.golang.org/grpc/codes"
 	// "google.golang.org/grpc/status"
@@ -35,9 +40,9 @@ type NodeServer struct {
 	VoteCount      map[string]int               // blockHash → vote count
 	BlockCommitted map[string]bool              // blockHash → committed status
 	VoteMutex      sync.Mutex                   // protect voteCount
-
-	PeerAddrs  []string
-	TotalNodes int
+	State          *state.State
+	PeerAddrs      []string
+	TotalNodes     int
 
 	// handler error
 	IsCommitting bool
@@ -72,6 +77,23 @@ func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction
 
 	s.PendingTxs = append(s.PendingTxs, txInternal)
 	// log.Printf("✅ Tx added. Total pending: %d\n", len(s.PendingTxs))
+
+	// check balance if leader
+	if s.IsLeader {
+		senderKey := hex.EncodeToString(txInternal.Sender)
+
+		balance, err := s.State.GetBalance(senderKey)
+		if err != nil {
+			log.Printf("❌ Error getting balance for %s: %v", senderKey, err)
+			return &nodepb.Status{Message: "Internal server error on getting balance", Success: false}, nil
+		}
+
+		if balance < txInternal.Amount {
+			log.Printf("❌ Insufficient funds for %s. Has: %f, Needs: %f", senderKey, balance, txInternal.Amount)
+			return &nodepb.Status{Message: "Insufficient funds", Success: false}, nil
+		}
+		log.Printf("✅ Balance check passed for %s. (Balance: %f)", senderKey, balance)
+	}
 
 	// Create block after 5 second or colect enought 10 transactions
 	if s.NodeID == "node1" {
@@ -121,6 +143,8 @@ func (s *NodeServer) createBlockFromPending() {
 		s.PendingTxs = nil
 	}
 
+	// Create a new empty MPT or obtain the current state MPT as needed
+	// mptInstance := mpt.NewMPT() // Replace with your actual MPT instance if needed
 	block := blockchain.NewBlock(txs, prevHash, height)
 	blockHash := string(block.CurrentBlockHash)
 
@@ -258,6 +282,7 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 			}
 			s.BlockCommitted[blockHashKey] = true
 			fmt.Printf("✅ Block committed! Height: %d\n", block.Height)
+			BroadcastCommittedBlock(block, s.PeerAddrs)
 		}
 	}
 
@@ -286,6 +311,14 @@ func (s *NodeServer) CommitBlock(ctx context.Context, pb *nodepb.Block) (*nodepb
 		return &nodepb.Status{Message: "Failed to save block", Success: false}, nil
 	}
 
+	for _, tx := range block.Transactions {
+		if err := s.State.ApplyTransaction(tx); err != nil {
+			log.Printf("🔥 CRITICAL: Failed to apply transaction in committed block: %v", err)
+		}
+	}
+
+	log.Println("💰 Balances updated.")
+
 	// Update state
 	s.LatestBlock = block
 	s.BlockCommitted[blockHash] = true
@@ -307,4 +340,19 @@ func (s *NodeServer) GetBlockFromHeight(ctx context.Context, req *nodepb.HeightR
 	}
 
 	return &nodepb.BlockList{Blocks: blocks}, nil
+}
+
+func (s *NodeServer) GetBalance(ctx context.Context, req *nodepb.GetBalanceRequest) (*nodepb.GetBalanceResponse, error) {
+	log.Printf("🔍 Received GetBalance request for address: %s", req.Address)
+
+	balance, err := s.State.GetBalance(req.Address)
+	if err != nil {
+		// Trả về lỗi nếu có vấn đề khi đọc DB
+		return nil, status.Errorf(codes.Internal, "could not retrieve balance: %v", err)
+	}
+
+	return &nodepb.GetBalanceResponse{
+		Address: req.Address,
+		Balance: balance,
+	}, nil
 }

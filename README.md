@@ -1,24 +1,51 @@
-# Blockchain-Go
+## Hướng dẫn cài đặt và sử dụng
 
-Hệ thống blockchain mô phỏng việc chuyển tiền giữa hai người.
+Phần này sẽ hướng dẫn bạn từng bước để thiết lập môi trường, khởi chạy mạng lưới blockchain và thực hiện các giao dịch cơ bản.
 
-## Hướng dẫn chạy hệ thống
+### Yêu cầu
 
-### Bước 1: Build các node
-Trước tiên, bạn cần build lại các node bằng Docker:
+Để chạy dự án này, bạn cần cài đặt:
+- Go (phiên bản 1.18 trở lên)
+- Docker và Docker Compose
 
+### Các bước thực hiện
+
+#### Bước 1: Cài đặt ban đầu (chỉ làm một lần)
+
+Đây là các bước để chuẩn bị dữ liệu và cấu hình cần thiết trước khi khởi chạy mạng lưới.
+
+1.  **Tạo ví cho người dùng:**
+
+    Mở terminal và chạy lệnh sau để tạo ví cho người dùng `alice` và `bob`. Thông tin ví (khóa riêng, khóa công khai, địa chỉ) sẽ được lưu trong thư mục `wallets/`.
+    ```bash
+    go run cmd/create_user/create_user.go --name alice
+    go run cmd/create_user/create_user.go --name bob
+    ```
+    Hãy sao chép lại 2 địa chỉ (`address`) được tạo ra để sử dụng ở bước tiếp theo. [cite: v-t-cong/blockchain-go/blockchain-go-5844c98f503beec27df26cd035575a78ca363bac/cmd/create_user/create_user.go]
+
+2.  **Cấu hình khối nguyên thủy (Genesis Block):**
+
+    Khối nguyên thủy là khối đầu tiên của chuỗi, nơi chúng ta cấp một lượng tiền ban đầu cho các tài khoản. Mở file `genesis.json` và dán các địa chỉ bạn vừa sao chép vào, đồng thời cấp cho họ một số dư.
+
+    *Ví dụ nội dung file `genesis.json`:*
+    ```json
+    {
+      "alloc": {
+        "<địa_chỉ_của_alice>": { "balance": 1000000.0 },
+        "<địa_chỉ_của_bob>": { "balance": 500000.0 }
+      }
+    }
+    ```
+
+3.  **Tạo dữ liệu Genesis:**
+
+    Chạy lệnh sau để đọc file `genesis.json` và tạo ra file dữ liệu `genesis.dat`. File này sẽ được các node sử dụng khi khởi động lần đầu.
+    ```bash
+    go run cmd/build_genesis/main.go
+    ```
+
+#### Bước 2: Khởi chạy mạng lưới
+
+Sử dụng Docker Compose để build và chạy 4 node (1 leader, 3 follower) cùng một lúc. Lệnh này sẽ thiết lập một mạng lưới ảo để các node có thể giao tiếp với nhau. [cite: v-t-cong/blockchain-go/blockchain-go-5844c98f503beec27df26cd035575a78ca363bac/docker-compose.yml]
 ```bash
-docker-compose build --no-cache
-
-### Bước 2: Khởi chạy hệ thống
-
-```bash
-docker-compose up
-
-### Bước 3: gửi dao dịch
-```bash
-go run cmd/client/sendtx.go
-
-
-### Bước 4: Kiểm tra giao dịch
- mở logs của docker để xem kiểm tra giao dịch
+docker-compose up --build
