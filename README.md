@@ -49,3 +49,11 @@ Phần này sẽ hướng dẫn bạn từng bước để thiết lập môi tr
 Sử dụng Docker Compose để build và chạy 4 node (1 leader, 3 follower) cùng một lúc. Lệnh này sẽ thiết lập một mạng lưới ảo để các node có thể giao tiếp với nhau. [cite: v-t-cong/blockchain-go/blockchain-go-5844c98f503beec27df26cd035575a78ca363bac/docker-compose.yml]
 ```bash
 docker-compose up --build
+```
+#### Bước 3: thực hiện gửi dịch bên trong blockchain
+chạy lệnh sau `go run cmd/client/sendtx.go` để thực hiện giao dịch chuyển tiền giữa các tài khoản
+
+để có thể kiểm tra giao dịch đã gửi thành công hay chưa bạn có có thể kiểm tra log ở phía docker hoặc kiểm tra bằng địa chỉ wallet bằng câu lệnh sau.
+```bash
+go run cmd/getbalance/maingo --address <địa_chỉ_bạn_muốn_kiểm_tra>
+```
