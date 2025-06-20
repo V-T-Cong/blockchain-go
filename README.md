@@ -64,7 +64,7 @@ chạy lệnh sau `go run cmd/client/sendtx.go` để thực hiện giao dịch 
 để có thể kiểm tra giao dịch đã gửi thành công hay chưa bạn có có thể kiểm tra log ở phía docker hoặc kiểm tra bằng địa chỉ wallet bằng câu lệnh sau.
 
 ```bash
-go run cmd/getbalance/maingo --address <địa_chỉ_bạn_muốn_kiểm_tra>
+go run cmd/getbalance/main.go --address <địa_chỉ_bạn_muốn_kiểm_tra>
 ```
 
 bạn có thể lấy địa chỉ wallet bằng cách mở thư mục wallets.
