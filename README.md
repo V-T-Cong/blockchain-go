@@ -1,8 +1,8 @@
-## Hướng dẫn cài đặt và sử dụng
+# Hướng dẫn cài đặt và sử dụng
 
 Phần này sẽ hướng dẫn bạn từng bước để thiết lập môi trường, khởi chạy mạng lưới blockchain và thực hiện các giao dịch cơ bản.
 
-### Yêu cầu
+## Yêu cầu
 
 Để chạy dự án này, bạn cần cài đặt:
 
