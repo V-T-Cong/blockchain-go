@@ -57,3 +57,4 @@ chạy lệnh sau `go run cmd/client/sendtx.go` để thực hiện giao dịch 
 ```bash
 go run cmd/getbalance/maingo --address <địa_chỉ_bạn_muốn_kiểm_tra>
 ```
+bạn có thể lấy địa chỉ wallet bằng cách mở thư mục wallets.
