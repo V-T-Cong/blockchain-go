@@ -28,6 +28,7 @@ message Block {
   bytes previousBlockHash = 4;
   bytes currentBlockHash = 5;
   int64 timestamp = 6;
+  bytes state_root = 7; 
 }
 
 // =========================

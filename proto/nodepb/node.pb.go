@@ -113,6 +113,7 @@ type Block struct {
 	PreviousBlockHash []byte                 `protobuf:"bytes,4,opt,name=previousBlockHash,proto3" json:"previousBlockHash,omitempty"`
 	CurrentBlockHash  []byte                 `protobuf:"bytes,5,opt,name=currentBlockHash,proto3" json:"currentBlockHash,omitempty"`
 	Timestamp         int64                  `protobuf:"varint,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	StateRoot         []byte                 `protobuf:"bytes,7,opt,name=state_root,json=stateRoot,proto3" json:"state_root,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -187,6 +188,13 @@ func (x *Block) GetTimestamp() int64 {
 		return x.Timestamp
 	}
 	return 0
+}
+
+func (x *Block) GetStateRoot() []byte {
+	if x != nil {
+		return x.StateRoot
+	}
+	return nil
 }
 
 type Vote struct {
@@ -532,7 +540,7 @@ const file_proto_node_proto_rawDesc = "" +
 	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12\x1c\n" +
 	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\x12\x1c\n" +
 	"\tsignature\x18\x05 \x01(\fR\tsignature\x12\x1c\n" +
-	"\tpublicKey\x18\x06 \x01(\fR\tpublicKey\"\xee\x01\n" +
+	"\tpublicKey\x18\x06 \x01(\fR\tpublicKey\"\x8d\x02\n" +
 	"\x05Block\x12\x16\n" +
 	"\x06height\x18\x01 \x01(\x03R\x06height\x125\n" +
 	"\ftransactions\x18\x02 \x03(\v2\x11.node.TransactionR\ftransactions\x12\x1e\n" +
@@ -541,7 +549,9 @@ const file_proto_node_proto_rawDesc = "" +
 	"merkleRoot\x12,\n" +
 	"\x11previousBlockHash\x18\x04 \x01(\fR\x11previousBlockHash\x12*\n" +
 	"\x10currentBlockHash\x18\x05 \x01(\fR\x10currentBlockHash\x12\x1c\n" +
-	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\"|\n" +
+	"\ttimestamp\x18\x06 \x01(\x03R\ttimestamp\x12\x1d\n" +
+	"\n" +
+	"state_root\x18\a \x01(\fR\tstateRoot\"|\n" +
 	"\x04Vote\x12\x18\n" +
 	"\avoterId\x18\x01 \x01(\tR\avoterId\x12 \n" +
 	"\vblockHeight\x18\x02 \x01(\x03R\vblockHeight\x12\x1c\n" +

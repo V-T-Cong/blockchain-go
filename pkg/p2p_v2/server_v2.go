@@ -27,6 +27,7 @@ type NodeServer struct {
 	LeaderID    string
 	DB          *storage.DB
 	LatestBlock *blockchain.Block
+	StateTrie   *mpt.MPT // state trie for account balances
 
 	PendingTxs []*blockchain.Transaction
 
@@ -95,6 +96,47 @@ func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction
 	return &nodepb.Status{Message: "Transaction received", Success: true}, nil
 }
 
+func (s *NodeServer) processTransactionsAndUpdateState(transactions []*blockchain.Transaction) ([]byte, error) {
+	for _, tx := range transactions {
+		senderAddr := tx.Sender
+		receiverAddr := tx.Receiver
+
+		// Lấy trạng thái tài khoản người gửi
+		senderData, _ := s.StateTrie.Get(senderAddr)
+		senderAccount := &blockchain.Account{Balance: 1000000} // Giả sử số dư ban đầu rất lớn để test
+		if senderData != nil {
+			senderAccount, _ = blockchain.DeserializeAccount(senderData)
+		}
+
+		// Kiểm tra số dư
+		if senderAccount.Balance < tx.Amount {
+			log.Printf("❌ Insufficient balance for sender %x", senderAddr)
+			continue // Bỏ qua giao dịch không hợp lệ
+		}
+
+		// Lấy trạng thái tài khoản người nhận
+		receiverData, _ := s.StateTrie.Get(receiverAddr)
+		receiverAccount := &blockchain.Account{Balance: 0}
+		if receiverData != nil {
+			receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+		}
+
+		// Cập nhật số dư
+		senderAccount.Balance -= tx.Amount
+		receiverAccount.Balance += tx.Amount
+
+		// Serialize và lưu lại vào Trie
+		newSenderData, _ := senderAccount.Serialize()
+		s.StateTrie.Insert(senderAddr, newSenderData)
+
+		newReceiverData, _ := receiverAccount.Serialize()
+		s.StateTrie.Insert(receiverAddr, newReceiverData)
+	}
+
+	// Trả về root hash mới của State Trie
+	return s.StateTrie.RootHash(), nil
+}
+
 func (s *NodeServer) createBlockFromPending() {
 	s.BlockMutex.Lock()
 	defer s.BlockMutex.Unlock()
@@ -121,7 +163,15 @@ func (s *NodeServer) createBlockFromPending() {
 		s.PendingTxs = nil
 	}
 
+	stateRoot, err := s.processTransactionsAndUpdateState(txs)
+	if err != nil {
+		log.Printf("❌ Error processing transactions: %v", err)
+		s.IsCommitting = false
+		return
+	}
+
 	block := blockchain.NewBlock(txs, prevHash, height)
+	block.StateRoot = stateRoot
 	blockHash := string(block.CurrentBlockHash)
 
 	log.Printf("📦 Leader: Creating block at height %d with %d txs", block.Height, len(txs))
@@ -182,6 +232,19 @@ func (s *NodeServer) ProposeBlock(ctx context.Context, pb *nodepb.Block) (*nodep
 		}
 	}
 	// log.Println("✅ PrevBlockHash OK")
+
+	// validate state root
+	tempStateTrie := s.StateTrie
+	computedStateRoot, err := s.processTransactionsAndUpdateStateOnFollower(block.Transactions, tempStateTrie)
+	if err != nil {
+		return &nodepb.Status{Message: "Failed to process transactions for state root validation", Success: false}, nil
+	}
+
+	if !bytes.Equal(computedStateRoot, block.StateRoot) {
+		log.Printf("❌ State root mismatch\nExpected: %x\nGot: %x", block.StateRoot, computedStateRoot)
+		return &nodepb.Status{Message: "State root mismatch", Success: false}, nil
+	}
+	// log.Println("✅ StateRoot OK")
 
 	blockHash := string(block.CurrentBlockHash)
 	s.PendingBlocks[blockHash] = block

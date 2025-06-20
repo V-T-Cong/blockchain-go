@@ -2,6 +2,7 @@ package main
 
 import (
 	"blockchain-go/pkg/blockchain"
+	"blockchain-go/pkg/mpt"
 	"blockchain-go/pkg/p2p_v2"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
@@ -48,6 +49,8 @@ func main() {
 	}
 	defer db.Close()
 
+	stateTrie := mpt.NewMPT()
+
 	// === Lấy block cuối cùng nếu có ===
 	latestBlock, _ := db.GetLatestBlock()
 	if latestBlock != nil {
@@ -63,6 +66,7 @@ func main() {
 		IsLeader:       isLeader,
 		DB:             db,
 		LatestBlock:    latestBlock,
+		StateTrie:      stateTrie,
 		PendingTxs:     []*blockchain.Transaction{},
 		PendingBlocks:  make(map[string]*blockchain.Block),
 		VoteCount:      make(map[string]int),

@@ -40,7 +40,7 @@ func NewBlock(transactions []*Transaction, previousBlockHash []byte, height int)
 		Timestamp:         time.Now().Unix(),
 	}
 
-	block.CurrentBlockHash = block.Hash()
+	// block.CurrentBlockHash = block.Hash()
 	return block
 }
 
@@ -104,6 +104,7 @@ func ProtoToBlock(pb *nodepb.Block) *Block {
 		Height:            pb.Height,
 		Transactions:      txs,
 		MerkleRoot:        pb.MerkleRoot,
+		StateRoot:         pb.StateRoot,
 		PreviousBlockHash: pb.PreviousBlockHash,
 		CurrentBlockHash:  pb.CurrentBlockHash,
 		Timestamp:         pb.Timestamp,
@@ -128,6 +129,7 @@ func BlockToProto(b *Block) *nodepb.Block {
 		Height:            b.Height,
 		Transactions:      ptxs,
 		MerkleRoot:        b.MerkleRoot,
+		StateRoot:         b.StateRoot,
 		PreviousBlockHash: b.PreviousBlockHash,
 		CurrentBlockHash:  b.CurrentBlockHash,
 		Timestamp:         b.Timestamp,
