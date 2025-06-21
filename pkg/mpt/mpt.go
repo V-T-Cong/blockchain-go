@@ -36,3 +36,14 @@ func BuildMPTFromTxHashes(txHashes [][]byte) (*MPT, []byte) {
 	}
 	return trie, trie.RootHash()
 }
+
+func (m *MPT) Clone() *MPT {
+	if m.Root == nil {
+		return NewMPT()
+	}
+	// Tạo MPT mới và clone Node gốc của nó
+	newTrie := &MPT{
+		Root: m.Root.Clone(),
+	}
+	return newTrie
+}

@@ -13,6 +13,9 @@ import (
 	"blockchain-go/pkg/mpt"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	// "golang.org/x/tools/go/analysis/passes/defers"
 	// "google.golang.org/grpc/codes"
 	// "google.golang.org/grpc/status"
@@ -45,6 +48,27 @@ type NodeServer struct {
 	BlockMutex   sync.Mutex
 	VotedBlocks  map[string]bool
 	VoteReceived map[string]map[string]bool
+}
+
+func (s *NodeServer) GetBalance(ctx context.Context, req *nodepb.GetBalanceRequest) (*nodepb.GetBalanceResponse, error) {
+	address := req.Address
+	log.Printf("🔍 Received GetBalance request for address: %x", address)
+
+	accountData, ok := s.StateTrie.Get(address)
+	if !ok || accountData == nil {
+		// Trả về số dư 0 nếu tài khoản chưa có trong state
+		return &nodepb.GetBalanceResponse{Balance: 0, Nonce: 0}, nil
+	}
+
+	account, err := blockchain.DeserializeAccount(accountData)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to deserialize account data")
+	}
+
+	return &nodepb.GetBalanceResponse{
+		Balance: account.Balance,
+		Nonce:   account.Nonce,
+	}, nil
 }
 
 func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Status, error) {
@@ -234,15 +258,9 @@ func (s *NodeServer) ProposeBlock(ctx context.Context, pb *nodepb.Block) (*nodep
 	// log.Println("✅ PrevBlockHash OK")
 
 	// validate state root
-	tempStateTrie := s.StateTrie
-	computedStateRoot, err := s.processTransactionsAndUpdateStateOnFollower(block.Transactions, tempStateTrie)
-	if err != nil {
-		return &nodepb.Status{Message: "Failed to process transactions for state root validation", Success: false}, nil
-	}
-
-	if !bytes.Equal(computedStateRoot, block.StateRoot) {
-		log.Printf("❌ State root mismatch\nExpected: %x\nGot: %x", block.StateRoot, computedStateRoot)
-		return &nodepb.Status{Message: "State root mismatch", Success: false}, nil
+	if !s.validateStateRoot(block) {
+		// Hàm validateStateRoot đã log lỗi chi tiết
+		return &nodepb.Status{Message: "Invalid State Root", Success: false}, nil
 	}
 	// log.Println("✅ StateRoot OK")
 
@@ -370,4 +388,56 @@ func (s *NodeServer) GetBlockFromHeight(ctx context.Context, req *nodepb.HeightR
 	}
 
 	return &nodepb.BlockList{Blocks: blocks}, nil
+}
+
+func (s *NodeServer) validateStateRoot(block *blockchain.Block) bool {
+	// 1. Tạo một bản sao của StateTrie hiện tại để không làm thay đổi trạng thái thật.
+	tempStateTrie := s.StateTrie.Clone()
+
+	// 2. Chạy các giao dịch trên bản sao Trie.
+	// (Bạn nên tạo một struct Account trong pkg/blockchain nếu chưa có)
+	for _, tx := range block.Transactions {
+		// Lấy trạng thái tài khoản người gửi từ Trie tạm
+		senderData, _ := tempStateTrie.Get(tx.Sender)
+		// Giả sử có số dư ban đầu lớn hoặc bạn có logic khởi tạo state
+		senderAccount := &blockchain.Account{Balance: 1000000}
+		if senderData != nil {
+			senderAccount, _ = blockchain.DeserializeAccount(senderData)
+		}
+
+		// Kiểm tra số dư
+		if senderAccount.Balance < tx.Amount {
+			log.Printf("❌ [Validation] Insufficient balance for sender %x", tx.Sender)
+			return false // Giao dịch không hợp lệ -> khối không hợp lệ
+		}
+
+		// Lấy trạng thái tài khoản người nhận
+		receiverData, _ := tempStateTrie.Get(tx.Receiver)
+		receiverAccount := &blockchain.Account{Balance: 0}
+		if receiverData != nil {
+			receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+		}
+
+		// Cập nhật số dư trên các tài khoản tạm
+		senderAccount.Balance -= tx.Amount
+		receiverAccount.Balance += tx.Amount
+
+		// Serialize và lưu lại vào Trie tạm
+		newSenderData, _ := senderAccount.Serialize()
+		tempStateTrie.Insert(tx.Sender, newSenderData)
+
+		newReceiverData, _ := receiverAccount.Serialize()
+		tempStateTrie.Insert(tx.Receiver, newReceiverData)
+	}
+
+	// 3. Tính toán StateRoot từ Trie tạm
+	computedStateRoot := tempStateTrie.RootHash()
+
+	// 4. So sánh với StateRoot trong khối được đề xuất
+	if !bytes.Equal(computedStateRoot, block.StateRoot) {
+		log.Printf("❌ State root mismatch!\n  Expected: %x\n  Got:      %x", block.StateRoot, computedStateRoot)
+		return false
+	}
+
+	return true
 }

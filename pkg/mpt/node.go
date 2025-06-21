@@ -7,6 +7,7 @@ type Node interface {
 	Insert([]byte, []byte) Node
 	Get(path []byte) ([]byte, bool)
 	GenerateProof([]byte) [][]byte
+	Clone() Node
 }
 
 type LeafNode struct {
@@ -118,4 +119,36 @@ func (b *BranchNode) GenerateProof(path []byte) [][]byte {
 		}
 	}
 	return proof
+}
+
+// Implement Clone() cho LeafNode
+func (l *LeafNode) Clone() Node {
+	// Tạo một leaf mới và sao chép dữ liệu key, value
+	newLeaf := &LeafNode{
+		Key:   make([]byte, len(l.Key)),
+		Value: make([]byte, len(l.Value)),
+	}
+	copy(newLeaf.Key, l.Key)
+	copy(newLeaf.Value, l.Value)
+	return newLeaf
+}
+
+// ...
+
+// Implement Clone() cho BranchNode
+func (b *BranchNode) Clone() Node {
+	newBranch := NewBranchNode()
+	// Sao chép Value nếu có
+	if b.Value != nil {
+		newBranch.Value = make([]byte, len(b.Value))
+		copy(newBranch.Value, b.Value)
+	}
+
+	// Sao chép từng nhánh con một cách đệ quy
+	for i, child := range b.Branches {
+		if child != nil {
+			newBranch.Branches[i] = child.Clone()
+		}
+	}
+	return newBranch
 }
