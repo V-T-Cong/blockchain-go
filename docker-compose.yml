@@ -10,7 +10,7 @@ services:
       NODE_ID: "node1"
       IS_LEADER: "true"
       LEADER_ADDR: "node1:50051"
-      PEERS: "node2:50051,node3:50051,,node4:50051"
+      PEERS: "node2:50051,node3:50051,node4:50051"
     volumes:
       - ./data/node1:/app/data
 

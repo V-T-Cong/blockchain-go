@@ -3,8 +3,10 @@ package p2p_v2
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -120,47 +122,6 @@ func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction
 	return &nodepb.Status{Message: "Transaction received", Success: true}, nil
 }
 
-func (s *NodeServer) processTransactionsAndUpdateState(transactions []*blockchain.Transaction) ([]byte, error) {
-	for _, tx := range transactions {
-		senderAddr := tx.Sender
-		receiverAddr := tx.Receiver
-
-		// Lấy trạng thái tài khoản người gửi
-		senderData, _ := s.StateTrie.Get(senderAddr)
-		senderAccount := &blockchain.Account{Balance: 1000000} // Giả sử số dư ban đầu rất lớn để test
-		if senderData != nil {
-			senderAccount, _ = blockchain.DeserializeAccount(senderData)
-		}
-
-		// Kiểm tra số dư
-		if senderAccount.Balance < tx.Amount {
-			log.Printf("❌ Insufficient balance for sender %x", senderAddr)
-			continue // Bỏ qua giao dịch không hợp lệ
-		}
-
-		// Lấy trạng thái tài khoản người nhận
-		receiverData, _ := s.StateTrie.Get(receiverAddr)
-		receiverAccount := &blockchain.Account{Balance: 0}
-		if receiverData != nil {
-			receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
-		}
-
-		// Cập nhật số dư
-		senderAccount.Balance -= tx.Amount
-		receiverAccount.Balance += tx.Amount
-
-		// Serialize và lưu lại vào Trie
-		newSenderData, _ := senderAccount.Serialize()
-		s.StateTrie.Insert(senderAddr, newSenderData)
-
-		newReceiverData, _ := receiverAccount.Serialize()
-		s.StateTrie.Insert(receiverAddr, newReceiverData)
-	}
-
-	// Trả về root hash mới của State Trie
-	return s.StateTrie.RootHash(), nil
-}
-
 func (s *NodeServer) createBlockFromPending() {
 	s.BlockMutex.Lock()
 	defer s.BlockMutex.Unlock()
@@ -187,18 +148,64 @@ func (s *NodeServer) createBlockFromPending() {
 		s.PendingTxs = nil
 	}
 
-	stateRoot, err := s.processTransactionsAndUpdateState(txs)
-	if err != nil {
-		log.Printf("❌ Error processing transactions: %v", err)
-		s.IsCommitting = false
-		return
+	tempStateTrie := s.StateTrie.Clone()
+	tempAccounts := make(map[string]*blockchain.Account)
+
+	for _, tx := range txs {
+		senderAddrHex := hex.EncodeToString(tx.Sender)
+		receiverAddrHex := hex.EncodeToString(tx.Receiver)
+		var senderAccount, receiverAccount *blockchain.Account
+		if acc, ok := tempAccounts[senderAddrHex]; ok {
+			senderAccount = acc
+		} else {
+			senderData, _ := tempStateTrie.Get(tx.Sender)
+			if senderData == nil {
+				senderAccount = &blockchain.Account{Balance: 1000000}
+			} else {
+				senderAccount, _ = blockchain.DeserializeAccount(senderData)
+			}
+		}
+		if acc, ok := tempAccounts[receiverAddrHex]; ok {
+			receiverAccount = acc
+		} else {
+			receiverData, _ := tempStateTrie.Get(tx.Receiver)
+			if receiverData == nil {
+				receiverAccount = &blockchain.Account{Balance: 0}
+			} else {
+				receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+			}
+		}
+		if senderAccount.Balance >= tx.Amount {
+			senderAccount.Balance -= tx.Amount
+			receiverAccount.Balance += tx.Amount
+		} else {
+			continue
+		}
+		tempAccounts[senderAddrHex] = senderAccount
+		tempAccounts[receiverAddrHex] = receiverAccount
 	}
+	var sortedAddrs []string
+	for addrHex := range tempAccounts {
+		sortedAddrs = append(sortedAddrs, addrHex)
+	}
+	sort.Strings(sortedAddrs)
+	for _, addrHex := range sortedAddrs {
+		account := tempAccounts[addrHex]
+		addrBytes, _ := hex.DecodeString(addrHex)
+		accountData, _ := account.Serialize()
+		tempStateTrie.Insert(addrBytes, accountData)
+	}
+
+	stateRoot := tempStateTrie.RootHash()
 
 	block := blockchain.NewBlock(txs, prevHash, height)
 	block.StateRoot = stateRoot
+
+	block.CurrentBlockHash = block.Hash()
+
 	blockHash := string(block.CurrentBlockHash)
 
-	log.Printf("📦 Leader: Creating block at height %d with %d txs", block.Height, len(txs))
+	log.Printf("📦 Leader: Creating block at height %d with StateRoot %x", block.Height, stateRoot)
 
 	s.PendingBlocks[blockHash] = block
 
@@ -361,6 +368,13 @@ func (s *NodeServer) CommitBlock(ctx context.Context, pb *nodepb.Block) (*nodepb
 		return &nodepb.Status{Message: "Invalid block on commit", Success: false}, nil
 	}
 
+	_, err := s.processAndUpdateState(block.Transactions)
+	if err != nil {
+		log.Printf("❌ Failed to update state on commit for block %d: %v", block.Height, err)
+		return &nodepb.Status{Message: "Failed to update state on commit", Success: false}, nil
+	}
+	log.Printf("⛓️  State Trie updated for committed block %d", block.Height)
+
 	// Save block to LevelDB
 	if err := s.DB.SaveBlock(block); err != nil {
 		log.Printf("❌ Failed to save block: %v", err)
@@ -390,54 +404,136 @@ func (s *NodeServer) GetBlockFromHeight(ctx context.Context, req *nodepb.HeightR
 	return &nodepb.BlockList{Blocks: blocks}, nil
 }
 
-func (s *NodeServer) validateStateRoot(block *blockchain.Block) bool {
-	// 1. Tạo một bản sao của StateTrie hiện tại để không làm thay đổi trạng thái thật.
-	tempStateTrie := s.StateTrie.Clone()
+func (s *NodeServer) processAndUpdateState(transactions []*blockchain.Transaction) ([]byte, error) {
+	// Dùng cache để xử lý các giao dịch liên quan đến cùng một tài khoản trong 1 block
+	tempAccounts := make(map[string]*blockchain.Account)
 
-	// 2. Chạy các giao dịch trên bản sao Trie.
-	// (Bạn nên tạo một struct Account trong pkg/blockchain nếu chưa có)
-	for _, tx := range block.Transactions {
-		// Lấy trạng thái tài khoản người gửi từ Trie tạm
-		senderData, _ := tempStateTrie.Get(tx.Sender)
-		// Giả sử có số dư ban đầu lớn hoặc bạn có logic khởi tạo state
-		senderAccount := &blockchain.Account{Balance: 1000000}
-		if senderData != nil {
-			senderAccount, _ = blockchain.DeserializeAccount(senderData)
+	for _, tx := range transactions {
+		senderAddrHex := hex.EncodeToString(tx.Sender)
+		receiverAddrHex := hex.EncodeToString(tx.Receiver)
+
+		var senderAccount, receiverAccount *blockchain.Account
+
+		// Lấy trạng thái người gửi (ưu tiên cache)
+		if acc, ok := tempAccounts[senderAddrHex]; ok {
+			senderAccount = acc
+		} else {
+			senderData, _ := s.StateTrie.Get(tx.Sender)
+			if senderData == nil {
+				senderAccount = &blockchain.Account{Balance: 1000000} // Số dư ban đầu để test
+			} else {
+				senderAccount, _ = blockchain.DeserializeAccount(senderData)
+			}
 		}
 
-		// Kiểm tra số dư
-		if senderAccount.Balance < tx.Amount {
-			log.Printf("❌ [Validation] Insufficient balance for sender %x", tx.Sender)
-			return false // Giao dịch không hợp lệ -> khối không hợp lệ
+		// Lấy trạng thái người nhận (ưu tiên cache)
+		if acc, ok := tempAccounts[receiverAddrHex]; ok {
+			receiverAccount = acc
+		} else {
+			receiverData, _ := s.StateTrie.Get(tx.Receiver)
+			if receiverData == nil {
+				receiverAccount = &blockchain.Account{Balance: 0}
+			} else {
+				receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+			}
 		}
 
-		// Lấy trạng thái tài khoản người nhận
-		receiverData, _ := tempStateTrie.Get(tx.Receiver)
-		receiverAccount := &blockchain.Account{Balance: 0}
-		if receiverData != nil {
-			receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+		// Cập nhật số dư
+		if senderAccount.Balance >= tx.Amount {
+			senderAccount.Balance -= tx.Amount
+			receiverAccount.Balance += tx.Amount
+		} else {
+			log.Printf("Sender %s has insufficient funds for tx, skipping", senderAddrHex)
+			continue // Bỏ qua giao dịch không hợp lệ
 		}
 
-		// Cập nhật số dư trên các tài khoản tạm
-		senderAccount.Balance -= tx.Amount
-		receiverAccount.Balance += tx.Amount
-
-		// Serialize và lưu lại vào Trie tạm
-		newSenderData, _ := senderAccount.Serialize()
-		tempStateTrie.Insert(tx.Sender, newSenderData)
-
-		newReceiverData, _ := receiverAccount.Serialize()
-		tempStateTrie.Insert(tx.Receiver, newReceiverData)
+		// Cập nhật lại vào cache
+		tempAccounts[senderAddrHex] = senderAccount
+		tempAccounts[receiverAddrHex] = receiverAccount
 	}
 
-	// 3. Tính toán StateRoot từ Trie tạm
+	// === PHẦN QUAN TRỌNG NHẤT: ĐẢM BẢO TÍNH TẤT ĐỊNH ===
+	// 1. Lấy tất cả các địa chỉ (keys) từ map
+	var sortedAddrs []string
+	for addrHex := range tempAccounts {
+		sortedAddrs = append(sortedAddrs, addrHex)
+	}
+
+	// 2. Sắp xếp các địa chỉ để có thứ tự cố định
+	sort.Strings(sortedAddrs)
+
+	// 3. Cập nhật vào Trie THEO THỨ TỰ ĐÃ SẮP XẾP
+	for _, addrHex := range sortedAddrs {
+		account := tempAccounts[addrHex]
+		addrBytes, _ := hex.DecodeString(addrHex)
+		accountData, _ := account.Serialize()
+		s.StateTrie.Insert(addrBytes, accountData)
+	}
+
+	return s.StateTrie.RootHash(), nil
+}
+
+func (s *NodeServer) validateStateRoot(block *blockchain.Block) bool {
+	// Dùng bản sao của Trie để xác thực an toàn
+	tempStateTrie := s.StateTrie.Clone()
+	tempAccounts := make(map[string]*blockchain.Account)
+
+	for _, tx := range block.Transactions {
+		senderAddrHex := hex.EncodeToString(tx.Sender)
+		receiverAddrHex := hex.EncodeToString(tx.Receiver)
+		var senderAccount, receiverAccount *blockchain.Account
+
+		if acc, ok := tempAccounts[senderAddrHex]; ok {
+			senderAccount = acc
+		} else {
+			senderData, _ := tempStateTrie.Get(tx.Sender)
+			if senderData == nil {
+				senderAccount = &blockchain.Account{Balance: 1000000}
+			} else {
+				senderAccount, _ = blockchain.DeserializeAccount(senderData)
+			}
+		}
+
+		if acc, ok := tempAccounts[receiverAddrHex]; ok {
+			receiverAccount = acc
+		} else {
+			receiverData, _ := tempStateTrie.Get(tx.Receiver)
+			if receiverData == nil {
+				receiverAccount = &blockchain.Account{Balance: 0}
+			} else {
+				receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
+			}
+		}
+
+		if senderAccount.Balance < tx.Amount {
+			log.Printf("❌ [Validation] Insufficient balance for sender %s", senderAddrHex)
+			return false
+		}
+		senderAccount.Balance -= tx.Amount
+		receiverAccount.Balance += tx.Amount
+		tempAccounts[senderAddrHex] = senderAccount
+		tempAccounts[receiverAddrHex] = receiverAccount
+	}
+
+	// === LOGIC TƯƠNG TỰ: SẮP XẾP ĐỂ ĐẢM BẢO TÍNH TẤT ĐỊNH ===
+	var sortedAddrs []string
+	for addrHex := range tempAccounts {
+		sortedAddrs = append(sortedAddrs, addrHex)
+	}
+	sort.Strings(sortedAddrs)
+
+	for _, addrHex := range sortedAddrs {
+		account := tempAccounts[addrHex]
+		addrBytes, _ := hex.DecodeString(addrHex)
+		accountData, _ := account.Serialize()
+		tempStateTrie.Insert(addrBytes, accountData)
+	}
+
 	computedStateRoot := tempStateTrie.RootHash()
 
-	// 4. So sánh với StateRoot trong khối được đề xuất
 	if !bytes.Equal(computedStateRoot, block.StateRoot) {
 		log.Printf("❌ State root mismatch!\n  Expected: %x\n  Got:      %x", block.StateRoot, computedStateRoot)
 		return false
 	}
-
 	return true
 }
