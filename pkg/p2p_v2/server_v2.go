@@ -50,6 +50,8 @@ type NodeServer struct {
 	BlockMutex   sync.Mutex
 	VotedBlocks  map[string]bool
 	VoteReceived map[string]map[string]bool
+
+	BlockProcessingMutex sync.Mutex
 }
 
 func (s *NodeServer) GetBalance(ctx context.Context, req *nodepb.GetBalanceRequest) (*nodepb.GetBalanceResponse, error) {
@@ -209,6 +211,11 @@ func (s *NodeServer) createBlockFromPending() {
 
 	s.PendingBlocks[blockHash] = block
 
+	s.VoteMutex.Lock()
+	s.VoteCount[blockHash] = 1 // Bắt đầu với 1 phiếu từ chính leader
+	s.VoteMutex.Unlock()
+	log.Printf("🗳️ Leader self-voted for block at height %d", block.Height)
+
 	// Propose to followers
 	go ProposeBlockToFollowers(block, s.PeerAddrs)
 
@@ -222,6 +229,10 @@ func (s *NodeServer) createBlockFromPending() {
 }
 
 func (s *NodeServer) ProposeBlock(ctx context.Context, pb *nodepb.Block) (*nodepb.Status, error) {
+
+	s.BlockProcessingMutex.Lock()
+	defer s.BlockProcessingMutex.Unlock()
+
 	log.Println("🔔 ProposeBlock CALLED on follower!")
 	log.Println("📦 Received proposed block")
 
@@ -346,6 +357,11 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 			}
 			s.BlockCommitted[blockHashKey] = true
 			fmt.Printf("✅ Block committed! Height: %d\n", block.Height)
+
+			if s.IsLeader {
+				log.Printf("📢 Broadcasting committed block %d to followers", block.Height)
+				go BroadcastCommittedBlock(block, s.PeerAddrs, s.LeaderAddr)
+			}
 		}
 	}
 
@@ -353,6 +369,10 @@ func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.
 }
 
 func (s *NodeServer) CommitBlock(ctx context.Context, pb *nodepb.Block) (*nodepb.Status, error) {
+
+	s.BlockProcessingMutex.Lock()
+	defer s.BlockProcessingMutex.Unlock()
+
 	block := blockchain.ProtoToBlock(pb)
 	blockHash := string(block.CurrentBlockHash)
 
@@ -362,13 +382,19 @@ func (s *NodeServer) CommitBlock(ctx context.Context, pb *nodepb.Block) (*nodepb
 		return &nodepb.Status{Message: "Already committed", Success: true}, nil
 	}
 
+	// Được dùng trong quá trình đồng bộ khi mà một node tắt
+	if s.LatestBlock != nil && block.Height <= s.LatestBlock.Height {
+		log.Printf("⚠️ Received commit for block %d, but current height is %d. Ignoring as already synced.", block.Height, s.LatestBlock.Height)
+		return &nodepb.Status{Message: "Block already processed via sync", Success: true}, nil
+	}
+
 	// Validate block again (optional nhưng khuyên dùng)
 	if !blockchain.ValidateBlock(block, s.LatestBlock) {
 		log.Printf("❌ Invalid block during commit: height %d", block.Height)
 		return &nodepb.Status{Message: "Invalid block on commit", Success: false}, nil
 	}
 
-	_, err := s.processAndUpdateState(block.Transactions)
+	_, err := s.ProcessAndUpdateState(block.Transactions)
 	if err != nil {
 		log.Printf("❌ Failed to update state on commit for block %d: %v", block.Height, err)
 		return &nodepb.Status{Message: "Failed to update state on commit", Success: false}, nil
@@ -404,7 +430,7 @@ func (s *NodeServer) GetBlockFromHeight(ctx context.Context, req *nodepb.HeightR
 	return &nodepb.BlockList{Blocks: blocks}, nil
 }
 
-func (s *NodeServer) processAndUpdateState(transactions []*blockchain.Transaction) ([]byte, error) {
+func (s *NodeServer) ProcessAndUpdateState(transactions []*blockchain.Transaction) ([]byte, error) {
 	// Dùng cache để xử lý các giao dịch liên quan đến cùng một tài khoản trong 1 block
 	tempAccounts := make(map[string]*blockchain.Account)
 

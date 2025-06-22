@@ -2,7 +2,6 @@ package p2p_v2
 
 import (
 	"blockchain-go/pkg/blockchain"
-	"blockchain-go/pkg/mpt"
 	"blockchain-go/pkg/storage"
 	"blockchain-go/proto/nodepb"
 	"context"
@@ -134,45 +133,4 @@ func SyncBlockFromLeader(startHeight int, leaderAddr string, db *storage.DB) err
 
 	log.Printf("✅ Sync complete. Total blocks synced: %d", len(res.Blocks))
 	return nil
-}
-
-func (s *NodeServer) processTransactionsAndUpdateStateOnFollower(transactions []*blockchain.Transaction, trie *mpt.MPT) ([]byte, error) {
-	for _, tx := range transactions {
-		senderAddr := tx.Sender
-		receiverAddr := tx.Receiver
-
-		// Lấy trạng thái tài khoản người gửi
-		senderData, _ := s.StateTrie.Get(senderAddr)
-		senderAccount := &blockchain.Account{Balance: 1000000} // Giả sử số dư ban đầu rất lớn để test
-		if senderData != nil {
-			senderAccount, _ = blockchain.DeserializeAccount(senderData)
-		}
-
-		// Kiểm tra số dư
-		if senderAccount.Balance < tx.Amount {
-			log.Printf("❌ Insufficient balance for sender %x", senderAddr)
-			continue // Bỏ qua giao dịch không hợp lệ
-		}
-
-		// Lấy trạng thái tài khoản người nhận
-		receiverData, _ := s.StateTrie.Get(receiverAddr)
-		receiverAccount := &blockchain.Account{Balance: 0}
-		if receiverData != nil {
-			receiverAccount, _ = blockchain.DeserializeAccount(receiverData)
-		}
-
-		// Cập nhật số dư
-		senderAccount.Balance -= tx.Amount
-		receiverAccount.Balance += tx.Amount
-
-		// Serialize và lưu lại vào Trie
-		newSenderData, _ := senderAccount.Serialize()
-		s.StateTrie.Insert(senderAddr, newSenderData)
-
-		newReceiverData, _ := receiverAccount.Serialize()
-		s.StateTrie.Insert(receiverAddr, newReceiverData)
-	}
-
-	// Trả về root hash mới của State Trie
-	return s.StateTrie.RootHash(), nil
 }
