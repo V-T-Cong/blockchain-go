@@ -146,12 +146,15 @@ func (s *NodeServer) createBlockFromPending() {
 	// Create a new empty MPT or obtain the current state MPT as needed
 	// mptInstance := mpt.NewMPT() // Replace with your actual MPT instance if needed
 	block := blockchain.NewBlock(txs, prevHash, height)
-	blockHash := string(block.CurrentBlockHash)
+	blockHashKey := string(block.CurrentBlockHash)
 
 	log.Printf("📦 Leader: Creating block at height %d with %d txs", block.Height, len(txs))
 
-	s.PendingBlocks[blockHash] = block
+	s.PendingBlocks[blockHashKey] = block
 
+	s.VoteMutex.Lock()
+	s.VoteCount[blockHashKey] = 1
+	s.VoteMutex.Unlock()
 	// Propose to followers
 	go ProposeBlockToFollowers(block, s.PeerAddrs)
 
@@ -169,6 +172,28 @@ func (s *NodeServer) ProposeBlock(ctx context.Context, pb *nodepb.Block) (*nodep
 	log.Println("📦 Received proposed block")
 
 	block := blockchain.ProtoToBlock(pb)
+
+	for _, tx := range block.Transactions {
+		// Bỏ qua việc kiểm tra số dư cho các giao dịch GENESIS
+		if string(tx.Sender) == "GENESIS" {
+			continue
+		}
+
+		senderKey := hex.EncodeToString(tx.Sender)
+		balance, err := s.State.GetBalance(senderKey)
+		if err != nil {
+			msg := fmt.Sprintf("Could not get balance for sender %s", senderKey)
+			log.Printf("❌ Block Rejected: %s. Error: %v", msg, err)
+			return &nodepb.Status{Message: msg, Success: false}, nil
+		}
+
+		if balance < tx.Amount {
+			msg := fmt.Sprintf("Insufficient funds for sender %s. Has: %f, Needs: %f", senderKey, balance, tx.Amount)
+			log.Printf("❌ Block Rejected: %s", msg)
+			return &nodepb.Status{Message: msg, Success: false}, nil
+		}
+	}
+	// log.Println("✅ Balance checks passed for all transactions.")
 
 	// verify transaction signatures
 	for _, tx := range block.Transactions {

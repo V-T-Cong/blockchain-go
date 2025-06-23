@@ -1,7 +1,7 @@
 {
   "alloc": {
     "b5ff2bd6e415f53beab7bbfae4f3c191993c98a2": { "balance": 10000000.0 },
-    "f2a78e68f116bf9dac6e232ed59df26dfe75a53e": { "balance": 10000.0 },
-    "b54dede74e93f8ce9e9eed3f846953c20b577a57": { "balance": 5000.0 }
+    "f2a78e68f116bf9dac6e232ed59df26dfe75a53e": { "balance": 100000.0 },
+    "b54dede74e93f8ce9e9eed3f846953c20b577a57": { "balance": 50000.0 }
   }
 }
