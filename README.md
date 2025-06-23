@@ -127,15 +127,19 @@ Theo dõi log trên docker desktop hoặc terminal docker-compose để xem quá
 
 ## 4. Cấu trúc thu mục
 
-├── cmd/                # Chứa code cho các chương trình thực thi (node, client, tools)
-├── pkg/                # Chứa logic cốt lõi của hệ thống, có thể tái sử dụng
-│   ├── blockchain/     # Định nghĩa cấu trúc Block, Transaction
-│   ├── p2p_v2/         # Logic client/server gRPC và đồng thuận
-│   ├── state/          # Logic quản lý số dư (State Database)
-│   ├── storage/        # Logic trừu tượng hóa việc tương tác với LevelDB
-│   └── wallet/         # Logic tạo ví, ký và xác thực giao dịch
-├── proto/              # Chứa các file định nghĩa Protocol Buffers (.proto)
-├── wallets/            # Nơi lưu trữ các file ví đã được tạo
-├── docker-compose.yml  # File cấu hình để chạy mạng lưới đa node
-├── genesis.json        # File cấu hình vốn ban đầu cho blockchain
-└── README.md           # Tài liệu dự án
+  ```
+    
+  ├── cmd/                # Chứa code cho các chương trình thực thi (node, client, tools)
+  ├── pkg/                # Chứa logic cốt lõi của hệ thống, có thể tái sử dụng
+  │   ├── blockchain/     # Định nghĩa cấu trúc Block, Transaction
+  │   ├── p2p_v2/         # Logic client/server gRPC và đồng thuận
+  │   ├── state/          # Logic quản lý số dư (State Database)
+  │   ├── storage/        # Logic trừu tượng hóa việc tương tác với LevelDB
+  │   └── wallet/         # Logic tạo ví, ký và xác thực giao dịch
+  ├── proto/              # Chứa các file định nghĩa Protocol Buffers (.proto)
+  ├── wallets/            # Nơi lưu trữ các file ví đã được tạo
+  ├── docker-compose.yml  # File cấu hình để chạy mạng lưới đa node
+  ├── genesis.json        # File cấu hình vốn ban đầu cho blockchain
+  └── README.md           # Tài liệu dự án
+
+  ```
