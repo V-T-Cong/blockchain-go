@@ -10,7 +10,7 @@ services:
       NODE_ID: "node1"
       IS_LEADER: "true"
       LEADER_ADDR: "node1:50051"
-      PEERS: "node2:50051,node3:50051,,node4:50051"
+      PEERS: "node2:50051,node3:50051,node4:50051"
     volumes:
       - ./data/node1:/app/data
 
@@ -26,6 +26,8 @@ services:
       PEERS: "node1:50051,node3:50051,node4:50051"
     volumes:
       - ./data/node2:/app/data
+    depends_on:
+      - leader
 
   follower2:
     build: .
@@ -39,6 +41,8 @@ services:
       PEERS: "node1:50051,node2:50051,node4:50051"
     volumes:
       - ./data/node3:/app/data
+    depends_on:
+      - leader
 
   follower3:
     build: .
@@ -52,3 +56,5 @@ services:
       PEERS: "node1:50051,node2:50051,node3:50051"
     volumes:
       - ./data/node4:/app/data
+    depends_on:
+      - leader

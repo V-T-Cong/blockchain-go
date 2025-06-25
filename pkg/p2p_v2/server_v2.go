@@ -1,310 +1,205 @@
+// pkg/p2p_v2/server_v2.go
 package p2p_v2
 
 import (
-	"bytes"
+	"blockchain-go/pkg/blockchain"
+	"blockchain-go/pkg/consensus"
+	"blockchain-go/pkg/cryptohelper"
+	"blockchain-go/pkg/state"
+	"blockchain-go/proto/nodepb"
 	"context"
-	"fmt"
+	"encoding/hex"
 	"log"
 	"sync"
 	"time"
 
-	"blockchain-go/pkg/blockchain"
-	"blockchain-go/pkg/cryptohelper"
-	"blockchain-go/pkg/mpt"
-	"blockchain-go/pkg/storage"
-	"blockchain-go/proto/nodepb"
-	// "golang.org/x/tools/go/analysis/passes/defers"
-	// "google.golang.org/grpc/codes"
-	// "google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type NodeServer struct {
 	nodepb.UnimplementedNodeServiceServer
 
-	NodeID      string
-	IsLeader    bool
-	LeaderAddr  string
-	LeaderID    string
-	DB          *storage.DB
-	LatestBlock *blockchain.Block
+	NodeID   string
+	IsLeader bool
 
-	PendingTxs []*blockchain.Transaction
+	// Fields solve transaction
+	PendingTxs  []*blockchain.Transaction
+	txMutex     sync.Mutex
+	isCreating  bool
+	createMutex sync.Mutex
 
-	// Consensus-related
-	PendingBlocks  map[string]*blockchain.Block // blockHash → block
-	VoteCount      map[string]int               // blockHash → vote count
-	BlockCommitted map[string]bool              // blockHash → committed status
-	VoteMutex      sync.Mutex                   // protect voteCount
-
-	PeerAddrs  []string
-	TotalNodes int
-
-	// handler error
-	IsCommitting bool
-	BlockMutex   sync.Mutex
-	VotedBlocks  map[string]bool
-	VoteReceived map[string]map[string]bool
+	// modules handle logic
+	Consensus *consensus.Manager
+	State     *state.State
 }
 
-func (s *NodeServer) SendTransaction(ctx context.Context, tx *nodepb.Transaction) (*nodepb.Status, error) {
-	// fmt.Println("📩 Received transaction")
+// SendTransaction nhận một giao dịch mới
+func (s *NodeServer) SendTransaction(ctx context.Context, txProto *nodepb.Transaction) (*nodepb.Status, error) {
+	txInternal := blockchain.ProtoToBlock(&nodepb.Block{Transactions: []*nodepb.Transaction{txProto}}).Transactions[0]
 
-	txInternal := &blockchain.Transaction{
-		Sender:    tx.Sender,
-		Receiver:  tx.Receiver,
-		Amount:    tx.Amount,
-		Timestamp: tx.Timestamp,
-		Signature: tx.Signature,
-		PublicKey: tx.PublicKey,
-	}
-
-	// Verify transaction and public key
-	pubKey, err := cryptohelper.BytesToPublicKey(tx.PublicKey)
+	// Xác thực chữ ký cơ bản
+	pubKey, err := cryptohelper.BytesToPublicKey(txInternal.PublicKey)
 	if err != nil {
-		fmt.Printf("Failed to parse public key: %v", err)
-		return &nodepb.Status{Message: "Invalid Signature", Success: false}, nil
+		return &nodepb.Status{Message: "Public key Invalid", Success: false}, nil
 	}
-
 	if !blockchain.VerifyTransaction(txInternal, pubKey) {
-		log.Println("❌ Invalid signature")
-		return &nodepb.Status{Message: "Invalid signature", Success: false}, nil
+		return &nodepb.Status{Message: "Chữ ký không hợp lệ", Success: false}, nil
 	}
 
-	s.PendingTxs = append(s.PendingTxs, txInternal)
-	// log.Printf("✅ Tx added. Total pending: %d\n", len(s.PendingTxs))
-
-	// Create block after 5 second or colect enought 10 transactions
-	if s.NodeID == "node1" {
-		if len(s.PendingTxs) >= 10 {
-			go s.createBlockFromPending()
-		} else {
-			go func() {
-				time.Sleep(5 * time.Second)
-
-				s.BlockMutex.Lock()
-				defer s.BlockMutex.Unlock()
-
-				if len(s.PendingTxs) > 0 && !s.IsCommitting {
-					s.IsCommitting = true
-					go s.createBlockFromPending()
-				}
-			}()
+	// Nếu là Leader, kiểm tra số dư ngay lập tức
+	if s.IsLeader {
+		senderKey := hex.EncodeToString(txInternal.Sender)
+		balance, err := s.State.GetBalance(senderKey)
+		if err != nil {
+			return &nodepb.Status{Message: "Error when checked balance", Success: false}, nil
+		}
+		if balance < txInternal.Amount {
+			return &nodepb.Status{Message: "balance not enough", Success: false}, nil
 		}
 	}
 
-	return &nodepb.Status{Message: "Transaction received", Success: true}, nil
+	// Add to queue and trigger block creation if needed
+	s.addTxToPending(txInternal)
+
+	return &nodepb.Status{Message: "Received transaction", Success: true}, nil
 }
 
-func (s *NodeServer) createBlockFromPending() {
-	s.BlockMutex.Lock()
-	defer s.BlockMutex.Unlock()
+func (s *NodeServer) addTxToPending(tx *blockchain.Transaction) {
+	s.txMutex.Lock()
+	s.PendingTxs = append(s.PendingTxs, tx)
+	txCount := len(s.PendingTxs)
+	s.txMutex.Unlock()
 
-	if len(s.PendingTxs) == 0 {
-		log.Println("⚠️ No transactions to create a block")
-		s.IsCommitting = false
+	if !s.IsLeader {
 		return
 	}
 
-	prevHash := []byte{}
-	height := 0
-	if s.LatestBlock != nil {
-		prevHash = s.LatestBlock.CurrentBlockHash
-		height = int(s.LatestBlock.Height) + 1
+	s.createMutex.Lock()
+	if s.isCreating {
+		s.createMutex.Unlock()
+		return
+	}
+	// Nếu đủ 10 tx hoặc đã đến lúc, tạo block
+	if txCount >= 10 {
+		s.isCreating = true
+		s.createMutex.Unlock()
+		go s.triggerCreateBlock()
+	} else {
+		s.createMutex.Unlock()
+		// Tạo một timer, nếu sau 5s chưa có block mới thì sẽ tạo
+		time.AfterFunc(5*time.Second, func() {
+			s.createMutex.Lock()
+			if !s.isCreating {
+				s.isCreating = true
+				s.createMutex.Unlock()
+				go s.triggerCreateBlock()
+			} else {
+				s.createMutex.Unlock()
+			}
+		})
+	}
+}
+
+func (s *NodeServer) triggerCreateBlock() {
+	s.txMutex.Lock()
+	if len(s.PendingTxs) == 0 {
+		s.txMutex.Unlock()
+		s.createMutex.Lock()
+		s.isCreating = false
+		s.createMutex.Unlock()
+		return
 	}
 
-	// Take up to 10 txs for the block
-	txs := s.PendingTxs
-	if len(txs) > 10 {
-		txs = s.PendingTxs[:10]
+	// Lấy tối đa 10 giao dịch
+	var txsToProcess []*blockchain.Transaction
+	if len(s.PendingTxs) > 10 {
+		txsToProcess = s.PendingTxs[:10]
 		s.PendingTxs = s.PendingTxs[10:]
 	} else {
-		s.PendingTxs = nil
+		txsToProcess = s.PendingTxs
+		s.PendingTxs = []*blockchain.Transaction{}
 	}
+	s.txMutex.Unlock()
 
-	block := blockchain.NewBlock(txs, prevHash, height)
-	blockHash := string(block.CurrentBlockHash)
+	// Gọi Consensus Manager để xử lý
+	s.Consensus.CreateAndProposeBlock(txsToProcess)
 
-	log.Printf("📦 Leader: Creating block at height %d with %d txs", block.Height, len(txs))
-
-	s.PendingBlocks[blockHash] = block
-
-	// Propose to followers
-	go ProposeBlockToFollowers(block, s.PeerAddrs)
-
-	// Reset commit flag after delay
-	go func() {
-		time.Sleep(2 * time.Second)
-		s.BlockMutex.Lock()
-		s.IsCommitting = false
-		s.BlockMutex.Unlock()
-	}()
+	// Reset cờ
+	time.Sleep(2 * time.Second) // Chờ một chút trước khi cho phép tạo block mới
+	s.createMutex.Lock()
+	s.isCreating = false
+	s.createMutex.Unlock()
 }
 
+// ProposeBlock là RPC handler cho follower.
 func (s *NodeServer) ProposeBlock(ctx context.Context, pb *nodepb.Block) (*nodepb.Status, error) {
-	log.Println("🔔 ProposeBlock CALLED on follower!")
-	log.Println("📦 Received proposed block")
+	if s.IsLeader {
+		return &nodepb.Status{Message: "Leader does not accept the proposal", Success: false}, nil
+	}
 
 	block := blockchain.ProtoToBlock(pb)
-
-	// verify transaction signatures
-	for _, tx := range block.Transactions {
-		pubKey, err := cryptohelper.BytesToPublicKey(tx.PublicKey)
-		if err != nil {
-			log.Println("❌ Invalid public key")
-			return &nodepb.Status{Message: "Invalid public key", Success: false}, nil
-		}
-		if !blockchain.VerifyTransaction(tx, pubKey) {
-			log.Println("❌ Invalid signature in tx")
-			return &nodepb.Status{Message: "Invalid signature in tx", Success: false}, nil
-		}
-	}
-	// log.Println("✅ Signatures OK")
-
-	// merkle validity
-	var txHashes [][]byte
-	for _, tx := range block.Transactions {
-		txHashes = append(txHashes, tx.Hash())
+	err := s.Consensus.HandleProposedBlock(block) // Ủy quyền cho Consensus Manager
+	if err != nil {
+		log.Printf("❌ Block was rejected: %v", err)
+		return &nodepb.Status{Message: err.Error(), Success: false}, nil
 	}
 
-	_, computedRoot := mpt.BuildMPTFromTxHashes(txHashes)
-
-	if !bytes.Equal(computedRoot, block.MerkleRoot) {
-		log.Printf("❌ Merkle root mismatch\nExpected: %x\nGot: %x", block.MerkleRoot, computedRoot)
-		return &nodepb.Status{Message: "Merkle root mismatch", Success: false}, nil
-	}
-	// log.Println("✅ Merkle Root OK")
-
-	// verify previousblock
-	if s.LatestBlock != nil {
-		if !bytes.Equal(block.PreviousBlockHash, s.LatestBlock.CurrentBlockHash) {
-			log.Println("❌ Previous block hash mismatch")
-			return &nodepb.Status{Message: "PreviousBlockHash mismatch", Success: false}, nil
-		}
-	}
-	// log.Println("✅ PrevBlockHash OK")
-
-	blockHash := string(block.CurrentBlockHash)
-	s.PendingBlocks[blockHash] = block
-
-	log.Println("✅ Block passed all verification checks")
-
-	go func() {
-		vote := &nodepb.Vote{
-			VoterId:   s.NodeID,
-			BlockHash: block.CurrentBlockHash,
-			Approved:  true,
-		}
-
-		err := SendVoteToLeader(vote, s.LeaderAddr)
-		if err != nil {
-			log.Printf("❌ Failed to send vote to leader: %v", err)
-		} else {
-			log.Printf("✅ Vote sent to leader for block %x", block.CurrentBlockHash)
-		}
-	}()
-
-	return &nodepb.Status{Message: "Block verified", Success: true}, nil
+	return &nodepb.Status{Message: "Block has been verified, sending vote.", Success: true}, nil
 }
 
+// VoteBlock là RPC handler cho leader.
 func (s *NodeServer) VoteBlock(ctx context.Context, vote *nodepb.Vote) (*nodepb.Status, error) {
-	fmt.Printf("🗳️ Received vote from %s: approved=%v\n", vote.VoterId, vote.Approved)
-
-	blockHashKey := string(vote.BlockHash)
-
-	// Leader vote skip
-	if vote.VoterId == s.NodeID && s.IsLeader {
-		return &nodepb.Status{Message: "Vote ignored", Success: true}, nil
+	if !s.IsLeader {
+		return &nodepb.Status{Message: "Only leader receive vote", Success: false}, nil
 	}
 
-	block := s.PendingBlocks[blockHashKey]
-	if block == nil {
-		return &nodepb.Status{Message: "Block not found", Success: false}, nil
-	}
+	go s.Consensus.HandleVote(vote) // Xử lý bất đồng bộ
 
-	// Handle case when only one node exists
-	if s.TotalNodes == 1 {
-		block := s.PendingBlocks[blockHashKey]
-		if block == nil {
-			return &nodepb.Status{Message: "Block not found", Success: false}, nil
-		}
-		if !s.BlockCommitted[blockHashKey] {
-			status, err := s.CommitBlock(ctx, blockchain.BlockToProto(block))
-			if err != nil || !status.Success {
-				return &nodepb.Status{Message: "Commit failed", Success: false}, nil
-			}
-			s.BlockCommitted[blockHashKey] = true
-			fmt.Printf("✅ Block committed (single-node)! Height: %d\n", block.Height)
-		}
-		return &nodepb.Status{Message: "Block committed (single-node)", Success: true}, nil
-	}
-
-	if vote.Approved {
-		s.VoteMutex.Lock()
-		s.VoteCount[blockHashKey]++
-		voteCount := s.VoteCount[blockHashKey]
-		s.VoteMutex.Unlock()
-
-		needed := s.TotalNodes/2 + 1
-
-		if voteCount >= needed && !s.BlockCommitted[blockHashKey] {
-			block := s.PendingBlocks[blockHashKey]
-			if block == nil {
-				return &nodepb.Status{Message: "Block not found", Success: false}, nil
-			}
-
-			status, err := s.CommitBlock(ctx, blockchain.BlockToProto(block))
-			if err != nil || !status.Success {
-				return &nodepb.Status{Message: "Commit failed", Success: false}, nil
-			}
-			s.BlockCommitted[blockHashKey] = true
-			fmt.Printf("✅ Block committed! Height: %d\n", block.Height)
-		}
-	}
-
-	return &nodepb.Status{Message: "Vote received", Success: true}, nil
+	return &nodepb.Status{Message: "Received vote", Success: true}, nil
 }
 
+// CommitBlock là RPC handler cho follower để commit block đã được đồng thuận.
 func (s *NodeServer) CommitBlock(ctx context.Context, pb *nodepb.Block) (*nodepb.Status, error) {
+	if s.IsLeader {
+		return &nodepb.Status{Message: "Leader commits by himself, no need for this RPC", Success: true}, nil
+	}
+
 	block := blockchain.ProtoToBlock(pb)
-	blockHash := string(block.CurrentBlockHash)
-
-	// Tránh commit trùng
-	if s.BlockCommitted[blockHash] {
-		log.Printf("⚠️ Block %d already committed", block.Height)
-		return &nodepb.Status{Message: "Already committed", Success: true}, nil
+	if err := s.Consensus.CommitBlock(block); err != nil {
+		log.Printf("❌ Follower commit block fail: %v", err)
+		return &nodepb.Status{Message: err.Error(), Success: false}, nil
 	}
 
-	// Validate block again (optional nhưng khuyên dùng)
-	if !blockchain.ValidateBlock(block, s.LatestBlock) {
-		log.Printf("❌ Invalid block during commit: height %d", block.Height)
-		return &nodepb.Status{Message: "Invalid block on commit", Success: false}, nil
-	}
-
-	// Save block to LevelDB
-	if err := s.DB.SaveBlock(block); err != nil {
-		log.Printf("❌ Failed to save block: %v", err)
-		return &nodepb.Status{Message: "Failed to save block", Success: false}, nil
-	}
-
-	// Update state
-	s.LatestBlock = block
-	s.BlockCommitted[blockHash] = true
-	log.Printf("✅ Block %d committed successfully", block.Height)
-
-	return &nodepb.Status{Message: "Block committed", Success: true}, nil
+	return &nodepb.Status{Message: "Block has been committed", Success: true}, nil
 }
 
+// GetBlockFromHeight trả về danh sách các block từ một height nhất định.
 func (s *NodeServer) GetBlockFromHeight(ctx context.Context, req *nodepb.HeightRequest) (*nodepb.BlockList, error) {
 	start := int(req.FromHeight)
 	var blocks []*nodepb.Block
 
 	for h := start; ; h++ {
-		block, err := s.DB.GetBlockByHeight(h)
+		block, err := s.Consensus.DB.GetBlockByHeight(h)
 		if err != nil {
-			break // hết block rồi
+			break // Hết block
 		}
 		blocks = append(blocks, blockchain.BlockToProto(block))
 	}
 
 	return &nodepb.BlockList{Blocks: blocks}, nil
+}
+
+// GetBalance return balance from the address
+func (s *NodeServer) GetBalance(ctx context.Context, req *nodepb.GetBalanceRequest) (*nodepb.GetBalanceResponse, error) {
+	log.Printf("🔍 Received GetBalance request for address: %s", req.Address)
+	balance, err := s.State.GetBalance(req.Address)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Can not get balance: %v", err)
+	}
+
+	return &nodepb.GetBalanceResponse{
+		Address: req.Address,
+		Balance: balance,
+	}, nil
 }

@@ -67,43 +67,42 @@ func SendVoteToLeader(vote *nodepb.Vote, leaderAddr string) error {
 	return nil
 }
 
-func BroadcastCommittedBlock(block *blockchain.Block, peerAddrs []string, selfAddr string) {
+func BroadcastCommittedBlock(block *blockchain.Block, peerAddrs []string) {
 	pb := blockchain.BlockToProto(block)
 
-	for _, addr := range peerAddrs {
-		if addr == selfAddr {
-			continue // Tránh gửi lại chính mình
-		}
+	log.Printf("📢 Broadcasting committed block %d to %d peers...", block.Height, len(peerAddrs))
 
+	for _, addr := range peerAddrs {
 		go func(peerAddr string) {
+			// Code bên trong hàm giữ nguyên, chỉ cần đảm bảo nó không còn dùng selfAddr
 			var lastErr error
 			for attempt := 1; attempt <= 3; attempt++ {
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 
+				// Dùng grpc.WithBlock() để chờ kết nối được thiết lập
 				conn, err := grpc.Dial(peerAddr, grpc.WithInsecure(), grpc.WithBlock())
 				if err != nil {
 					lastErr = err
-					log.Printf("❌ [Attempt %d] Cannot connect to %s: %v", attempt, peerAddr, err)
+					log.Printf("❌ [Broadcast Attempt %d] Cannot connect to %s: %v", attempt, peerAddr, err)
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
 
 				client := nodepb.NewNodeServiceClient(conn)
 				_, err = client.CommitBlock(ctx, pb)
-				conn.Close() // Đóng ngay sau call
+				conn.Close()
 
 				if err == nil {
-					log.Printf("📨 Block committed broadcast to %s", peerAddr)
-					return
+					log.Printf("✅ Committed block broadcast to %s successfully", peerAddr)
+					return // Thoát khi thành công
 				}
 
 				lastErr = err
-				log.Printf("❌ [Attempt %d] Failed to commit to %s: %v", attempt, peerAddr, err)
+				log.Printf("❌ [Broadcast Attempt %d] Failed to commit to %s: %v", attempt, peerAddr, err)
 				time.Sleep(500 * time.Millisecond)
 			}
-
-			log.Printf("⛔ Exhausted retries for %s: %v", peerAddr, lastErr)
+			log.Printf("⛔ Exhausted retries for %s. Last error: %v", peerAddr, lastErr)
 		}(addr)
 	}
 }

@@ -95,6 +95,16 @@ func (d *DB) GetBlockByHeight(height int) (*blockchain.Block, error) {
 	return d.GetBlock(hash)
 }
 
+// Get retrieves a value by key.
+func (d *DB) Get(key []byte) ([]byte, error) {
+	return d.db.Get(key, nil)
+}
+
+// Put saves a key-value pair.
+func (d *DB) Put(key, value []byte, options ...interface{}) error {
+	return d.db.Put(key, value, nil)
+}
+
 // Close closes the DB
 func (d *DB) Close() error {
 	return d.db.Close()

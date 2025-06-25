@@ -15,7 +15,6 @@ type Block struct {
 	Height            int64
 	Transactions      []*Transaction
 	MerkleRoot        []byte
-	StateRoot         []byte
 	PreviousBlockHash []byte
 	CurrentBlockHash  []byte
 	Timestamp         int64
@@ -23,13 +22,9 @@ type Block struct {
 
 func NewBlock(transactions []*Transaction, previousBlockHash []byte, height int) *Block {
 	var txHashes [][]byte
-
 	for _, tx := range transactions {
 		txHashes = append(txHashes, tx.Hash())
 	}
-
-	// fmt.Printf("txHashes: %x\n", txHashes)
-
 	_, mptRoot := mpt.BuildMPTFromTxHashes(txHashes)
 
 	block := &Block{
@@ -46,7 +41,7 @@ func NewBlock(transactions []*Transaction, previousBlockHash []byte, height int)
 
 func (b *Block) Hash() []byte {
 	copyBlock := *b
-	copyBlock.CurrentBlockHash = nil // avoid self-inclusion
+	copyBlock.CurrentBlockHash = nil // Tránh tự tham chiếu khi băm
 	data, _ := json.Marshal(copyBlock)
 	hash := sha256.Sum256(data)
 	return hash[:]

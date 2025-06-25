@@ -7,3 +7,5 @@ data/testdb/
 
 ./pkg/storage/mock_storage.go
 wallets/
+genesis.dat
+genesis.json
