@@ -22,10 +22,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func ctx() context.Context {
-	return context.Background()
-}
-
 func main() {
 	// === Cấu hình từ biến môi trường ===
 	nodeID := os.Getenv("NODE_ID")
@@ -135,7 +131,7 @@ func main() {
 	}
 }
 
-func syncFromLeader(leaderAddr string, db *storage.DB, stateManager *state.State, consensusManager *consensus.Manager) {
+func syncFromLeader(leaderAddr string, db *storage.DB, _ *state.State, consensusManager *consensus.Manager) {
 	log.Println("🔄 Syncing blocks from leader...")
 	var latestBlock, _ = db.GetLatestBlock()
 
